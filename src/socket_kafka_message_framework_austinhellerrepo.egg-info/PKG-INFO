@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: socket-kafka-message-framework-austinhellerrepo
+Version: 0.0.1
+Summary: A framework for transferring messages between clients and servers, then pushing/pulling those message via Kafka
+Home-page: https://github.com/AustinHellerRepo/SocketKafkaMessageFramework
+Author: Austin Heller
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operation System :: OS Independent
+Requires-Python: >=3.8
+License-File: LICENSE
+
+UNKNOWN
+
