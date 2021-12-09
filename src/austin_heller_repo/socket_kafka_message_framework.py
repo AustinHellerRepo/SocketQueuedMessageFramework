@@ -184,3 +184,21 @@ class ServerMessenger():
 				)
 			self.__client_sockets.clear()
 			self.__client_sockets_semaphore.release()
+
+
+class ServerMessengerFactory():
+
+	def __init__(self, *, server_socket_factory: ServerSocketFactory, kafka_manager_factory: KafkaManagerFactory, host_port: int, kafka_topic_name: str):
+
+		self.__server_socket_factory = server_socket_factory
+		self.__kafka_manager_factory = kafka_manager_factory
+		self.__host_port = host_port
+		self.__kafka_topic_name = kafka_topic_name
+
+	def get_server_messenger(self) -> ServerMessenger:
+		return ServerMessenger(
+			server_socket_factory=self.__server_socket_factory,
+			kafka_manager_factory=self.__kafka_manager_factory,
+			host_port=self.__host_port,
+			kafka_topic_name=self.__kafka_topic_name
+		)
