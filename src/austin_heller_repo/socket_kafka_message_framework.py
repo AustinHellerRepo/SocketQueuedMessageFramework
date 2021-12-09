@@ -27,7 +27,7 @@ class ClientServerMessage(ABC):
 	@abstractmethod
 	def to_json(self) -> Dict:
 		return {
-			"__type": self.get_client_server_message_type()
+			"__type": self.get_client_server_message_type().value
 		}
 
 	@staticmethod
