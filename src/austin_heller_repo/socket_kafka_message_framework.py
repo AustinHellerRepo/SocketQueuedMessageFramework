@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from austin_heller_repo.common import StringEnum
+from austin_heller_repo.common import StringEnum, HostPointer
 from austin_heller_repo.socket import ClientSocketFactory, ClientSocket, ServerSocketFactory, ServerSocket
 from austin_heller_repo.kafka_manager import KafkaManagerFactory, KafkaManager, KafkaAsyncWriter
 from austin_heller_repo.threading import AsyncHandle, Semaphore
@@ -38,11 +38,10 @@ class ClientServerMessage(ABC):
 
 class ClientMessenger():
 
-	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_address: str, server_host_port: int):
+	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_pointer: HostPointer):
 
 		self.__client_socket_factory = client_socket_factory
-		self.__server_host_address = server_host_address
-		self.__server_host_port = server_host_port
+		self.__server_host_pointer = server_host_pointer
 
 		self.__client_socket = None  # type: ClientSocket
 
@@ -50,8 +49,8 @@ class ClientMessenger():
 		if self.__client_socket is None:
 			self.__client_socket = self.__client_socket_factory.get_client_socket()
 			self.__client_socket.connect_to_server(
-				ip_address=self.__server_host_address,
-				port=self.__server_host_port
+				ip_address=self.__server_host_pointer.get_host_address(),
+				port=self.__server_host_pointer.get_host_port()
 			)
 		self.__client_socket.write(json.dumps(request_client_server_message.to_json()))
 		response_message = ClientServerMessage.parse_from_json(
@@ -62,17 +61,15 @@ class ClientMessenger():
 
 class ClientMessengerFactory():
 
-	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_address: str, server_host_port: int):
+	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_pointer: HostPointer):
 
 		self.__client_socket_factory = client_socket_factory
-		self.__server_host_address = server_host_address
-		self.__server_host_port = server_host_port
+		self.__server_host_pointer = server_host_pointer
 
 	def get_client_messenger(self) -> ClientMessenger:
 		return ClientMessenger(
 			client_socket_factory=self.__client_socket_factory,
-			server_host_address=self.__server_host_address,
-			server_host_port=self.__server_host_port
+			server_host_pointer=self.__server_host_pointer
 		)
 
 
@@ -118,11 +115,11 @@ class KafkaMessage():
 
 class ServerMessenger():
 
-	def __init__(self, *, server_socket_factory: ServerSocketFactory, kafka_manager_factory: KafkaManagerFactory, host_port: int, kafka_topic_name: str):
+	def __init__(self, *, server_socket_factory: ServerSocketFactory, kafka_manager_factory: KafkaManagerFactory, local_host_pointer: HostPointer, kafka_topic_name: str):
 
 		self.__server_socket_factory = server_socket_factory
 		self.__kafka_manager_factory = kafka_manager_factory
-		self.__host_port = host_port
+		self.__local_host_pointer = local_host_pointer
 		self.__kafka_topic_name = kafka_topic_name
 
 		self.__server_socket = None  # type: ServerSocket
@@ -164,8 +161,8 @@ class ServerMessenger():
 			self.__is_receiving_from_clients = True
 			self.__server_socket = self.__server_socket_factory.get_server_socket()
 			self.__server_socket.start_accepting_clients(
-				host_ip_address="0.0.0.0",
-				host_port=self.__host_port,
+				host_ip_address=self.__local_host_pointer.get_host_address(),
+				host_port=self.__local_host_pointer.get_host_port(),
 				on_accepted_client_method=self.__on_accepted_client_method
 			)
 
@@ -188,17 +185,17 @@ class ServerMessenger():
 
 class ServerMessengerFactory():
 
-	def __init__(self, *, server_socket_factory: ServerSocketFactory, kafka_manager_factory: KafkaManagerFactory, host_port: int, kafka_topic_name: str):
+	def __init__(self, *, server_socket_factory: ServerSocketFactory, kafka_manager_factory: KafkaManagerFactory, local_host_pointer: HostPointer, kafka_topic_name: str):
 
 		self.__server_socket_factory = server_socket_factory
 		self.__kafka_manager_factory = kafka_manager_factory
-		self.__host_port = host_port
+		self.__local_host_pointer = local_host_pointer
 		self.__kafka_topic_name = kafka_topic_name
 
 	def get_server_messenger(self) -> ServerMessenger:
 		return ServerMessenger(
 			server_socket_factory=self.__server_socket_factory,
 			kafka_manager_factory=self.__kafka_manager_factory,
-			host_port=self.__host_port,
+			local_host_pointer=self.__local_host_pointer,
 			kafka_topic_name=self.__kafka_topic_name
 		)
