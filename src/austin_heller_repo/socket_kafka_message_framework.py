@@ -35,6 +35,10 @@ class ClientServerMessage(ABC):
 	def parse_from_json(*, json_object: Dict):
 		raise NotImplementedError()
 
+	@staticmethod
+	def remove_base_keys(*, json_object: Dict):
+		json_object.pop("__type")
+
 
 class ClientMessenger():
 
