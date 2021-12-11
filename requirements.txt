@@ -2,3 +2,4 @@ git+https://github.com/AustinHellerRepo/Common
 git+https://github.com/AustinHellerRepo/Socket
 git+https://github.com/AustinHellerRepo/KafkaManager
 git+https://github.com/AustinHellerRepo/Threading
+transitions==0.8.10
