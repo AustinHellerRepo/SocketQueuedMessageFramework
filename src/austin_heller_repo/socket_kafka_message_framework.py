@@ -106,40 +106,29 @@ class ClientMessenger():
 		if self.__receive_from_server_callback is not None:
 			raise Exception(f"Already receiving from server.")
 		else:
-			if False:
-				self.__receive_from_server_callback = callback
-
-				async_handle = AsyncHandle(
-					get_result_method=self.__receive_from_server
-				)
-				async_handle.try_wait(
-					timeout_seconds=0
-				)
-				self.__receive_from_server_async_handle = async_handle
-			else:
-				def get_result(read_only_async_handle: ReadOnlyAsyncHandle):
-					try:
-						while not read_only_async_handle.is_cancelled():
-							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read start")
-							client_server_message_json_string = self.__client_socket.read()
-							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read end: {client_server_message_json_string}")
-							client_server_message = self.__client_server_message_class.parse_from_json(
-								json_object=json.loads(client_server_message_json_string)
-							)  # type: ClientServerMessage
-							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: parsed: {client_server_message.get_client_server_message_type()}")
-							callback(client_server_message)
-							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: callback completed")
-						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: cancelled")
-					except Exception as ex:
-						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: ex: {ex}")
-						raise ex
-				async_handle = AsyncHandle(
-					get_result_method=get_result
-				)
-				async_handle.try_wait(
-					timeout_seconds=0
-				)
-				self.__receive_from_server_async_handle = async_handle
+			def get_result(read_only_async_handle: ReadOnlyAsyncHandle):
+				try:
+					while not read_only_async_handle.is_cancelled():
+						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read start")
+						client_server_message_json_string = self.__client_socket.read()
+						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read end: {client_server_message_json_string}")
+						client_server_message = self.__client_server_message_class.parse_from_json(
+							json_object=json.loads(client_server_message_json_string)
+						)  # type: ClientServerMessage
+						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: parsed: {client_server_message.get_client_server_message_type()}")
+						callback(client_server_message)
+						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: callback completed")
+					print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: cancelled")
+				except Exception as ex:
+					print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: ex: {ex}")
+					raise ex
+			async_handle = AsyncHandle(
+				get_result_method=get_result
+			)
+			async_handle.try_wait(
+				timeout_seconds=0
+			)
+			self.__receive_from_server_async_handle = async_handle
 
 	def dispose(self):
 		print(f"{datetime.utcnow()}: ClientMessenger: dispose: start")

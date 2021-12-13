@@ -472,6 +472,8 @@ class MessengerTest(unittest.TestCase):
 
 			print(f"setUp: result: {topic}: {datetime.utcnow()}")
 
+		time.sleep(1)
+
 	def test_initialize_client_messenger(self):
 
 		client_messenger = get_default_client_messenger()
@@ -510,8 +512,6 @@ class MessengerTest(unittest.TestCase):
 
 		server_messenger.start_receiving_from_clients()
 
-		time.sleep(1)
-
 		client_messenger.connect_to_server()
 
 		client_messenger.send_to_server(
@@ -525,14 +525,13 @@ class MessengerTest(unittest.TestCase):
 		client_messenger.dispose()
 
 	def test_press_button_three_times(self):
+		# send three presses and wait for a reply
 
 		client_messenger = get_default_client_messenger()
 
 		server_messenger = get_default_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
-
-		time.sleep(1)
 
 		client_messenger.connect_to_server()
 
@@ -542,6 +541,7 @@ class MessengerTest(unittest.TestCase):
 			nonlocal callback_total
 			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
 			callback_total += 1
+			self.assertIsInstance(client_server_message, ThreePressesTransmissionBaseClientServerMessage)
 
 		client_messenger.receive_from_server(
 			callback=callback
@@ -592,3 +592,162 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(5)
 
 		self.assertEqual(1, callback_total)
+
+	def test_one_client_sends_two_presses_then_reset(self):
+		# send two presses of the button, then send a reset, and finally wait for a reply
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			callback_total += 1
+			self.assertIsInstance(client_server_message, ResetTransmissionBaseClientServerMessage)
+
+		client_messenger.receive_from_server(
+			callback=callback
+		)
+
+		print(f"{datetime.utcnow()}: sending announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="Test Name"
+			)
+		)
+
+		print(f"{datetime.utcnow()}: sending first press")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: sending second press")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: sending reset")
+
+		client_messenger.send_to_server(
+			request_client_server_message=ResetButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposed")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
+
+	def test_two_clients_each_send_one_press_then_reset(self):
+
+		first_client_messenger = get_default_client_messenger()
+
+		second_client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		first_client_messenger.connect_to_server()
+		second_client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def first_callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: first_callback: client_server_message: {client_server_message.to_json()}")
+			callback_total += 1
+			self.assertIsInstance(client_server_message, ResetTransmissionBaseClientServerMessage)
+
+		first_client_messenger.receive_from_server(
+			callback=first_callback
+		)
+
+		def second_callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: second_callback: client_server_message: {client_server_message.to_json()}")
+			callback_total += 1
+			self.assertIsInstance(client_server_message, ResetTransmissionBaseClientServerMessage)
+
+		second_client_messenger.receive_from_server(
+			callback=second_callback
+		)
+
+		print(f"{datetime.utcnow()}: sending first announcement")
+
+		first_client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="First"
+			)
+		)
+
+		print(f"{datetime.utcnow()}: sending second announcement")
+
+		second_client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="Second"
+			)
+		)
+
+		print(f"{datetime.utcnow()}: sending first press")
+
+		first_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: sending second press")
+
+		second_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: sending reset")
+
+		first_client_messenger.send_to_server(
+			request_client_server_message=ResetButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing")
+
+		first_client_messenger.dispose()
+		second_client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposed")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(2, callback_total)
