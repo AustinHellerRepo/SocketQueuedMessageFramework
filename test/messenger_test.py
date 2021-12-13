@@ -11,6 +11,10 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 
 
+is_socket_debug_active = False
+is_server_messenger_debug_active = True
+
+
 class BaseClientServerMessage(ClientServerMessage, ABC):
 	pass
 
@@ -266,6 +270,7 @@ class ButtonStructure(Structure):
 
 		self.__pressed_button_client_uuids = []  # type: List[str]
 		self.__name_per_client_uuid = {}  # type: Dict[str, str]
+		self.__presses_total = 0
 
 		self.add_transition(
 			trigger=BaseClientServerMessageTypeEnum.Announce.value,
@@ -336,6 +341,13 @@ class ButtonStructure(Structure):
 			print(f"button pressed by {self.__name_per_client_uuid[client_uuid]}")
 		else:
 			print(f"button pressed by {client_uuid}")
+		self.__presses_total += 1
+		if self.__presses_total == 3:
+			update_structure_influence.add_response_client_server_message(
+				client_server_message=ThreePressesTransmissionBaseClientServerMessage(
+					client_uuid=client_uuid
+				)
+			)
 
 	def __button_reset(self, update_structure_influence: UpdateStructureInfluence):
 		for client_uuid in self.__pressed_button_client_uuids:
@@ -385,7 +397,8 @@ def get_default_kafka_manager_factory() -> KafkaManagerFactory:
 		is_cancelled_polling_seconds=0.1,
 		new_topic_partitions_total=1,
 		new_topic_replication_factor=1,
-		remove_topic_cluster_propagation_blocking_timeout_seconds=30
+		remove_topic_cluster_propagation_blocking_timeout_seconds=30,
+		is_debug=True
 	)
 
 
@@ -394,7 +407,8 @@ def get_default_client_messenger() -> ClientMessenger:
 		client_socket_factory=ClientSocketFactory(
 			to_server_packet_bytes_length=4096,
 			server_read_failed_delay_seconds=0.1,
-			is_ssl=False
+			is_ssl=False,
+			is_debug=is_socket_debug_active
 		),
 		server_host_pointer=get_default_local_host_pointer(),
 		client_server_message_class=BaseClientServerMessage,
@@ -418,13 +432,15 @@ def get_default_server_messenger() -> ServerMessenger:
 			listening_limit_total=10,
 			accept_timeout_seconds=1.0,
 			client_read_failed_delay_seconds=0.1,
-			is_ssl=False
+			is_ssl=False,
+			is_debug=is_socket_debug_active
 		),
 		kafka_manager_factory=get_default_kafka_manager_factory(),
 		local_host_pointer=get_default_local_host_pointer(),
 		kafka_topic_name=kafka_topic_name,
 		client_server_message_class=BaseClientServerMessage,
-		structure_factory=ButtonStructureFactory()
+		structure_factory=ButtonStructureFactory(),
+		is_debug=is_server_messenger_debug_active
 	)
 
 
@@ -462,11 +478,29 @@ class MessengerTest(unittest.TestCase):
 
 		self.assertIsNotNone(client_messenger)
 
+		client_messenger.dispose()
+
 	def test_initialize_server_messenger(self):
 
 		server_messenger = get_default_server_messenger()
 
 		self.assertIsNotNone(server_messenger)
+
+	def test_server_messenger_start_and_stop(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(3)
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
 
 	def test_connect_client_to_server(self):
 
@@ -476,10 +510,85 @@ class MessengerTest(unittest.TestCase):
 
 		server_messenger.start_receiving_from_clients()
 
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
 		client_messenger.send_to_server(
 			request_client_server_message=HelloWorldBaseClientServerMessage()
 		)
 
-		time.sleep(2)
+		time.sleep(1)
 
-		pass
+		server_messenger.stop_receiving_from_clients()
+
+		client_messenger.dispose()
+
+	def test_press_button_three_times(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			callback_total += 1
+
+		client_messenger.receive_from_server(
+			callback=callback
+		)
+
+		print(f"{datetime.utcnow()}: sending announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="Test Name"
+			)
+		)
+
+		print(f"{datetime.utcnow()}: sending first press")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: sending second press")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: sending third press")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposed")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
