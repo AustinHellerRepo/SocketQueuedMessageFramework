@@ -3,13 +3,14 @@ from abc import ABC, abstractmethod
 from austin_heller_repo.common import StringEnum, HostPointer
 from austin_heller_repo.socket import ClientSocketFactory, ClientSocket, ServerSocketFactory, ServerSocket
 from austin_heller_repo.kafka_manager import KafkaManagerFactory, KafkaManager, KafkaAsyncWriter, KafkaReader, KafkaMessage
-from austin_heller_repo.threading import AsyncHandle, Semaphore, ReadOnlyAsyncHandle, PreparedSemaphoreRequest, SemaphoreRequestQueue, SemaphoreRequest, start_thread
+from austin_heller_repo.threading import AsyncHandle, Semaphore, ReadOnlyAsyncHandle, PreparedSemaphoreRequest, SemaphoreRequestQueue, SemaphoreRequest, start_thread, ThreadCycle, ThreadCycleCache, CyclingUnitOfWork
 from typing import List, Tuple, Dict, Type, Callable
 import json
 from datetime import datetime
 import uuid
 from transitions import MachineError, Machine
 import time
+import multiprocessing as mp
 
 
 class ClientServerMessageTypeEnum(StringEnum):
@@ -42,6 +43,10 @@ class ClientServerMessage(ABC):
 		json_object.pop("__type")
 
 	@abstractmethod
+	def is_response(self) -> bool:
+		raise NotImplementedError()
+
+	@abstractmethod
 	def is_directed_to_destination_uuid(self, *, destination_uuid: str) -> bool:
 		raise NotImplementedError()
 
@@ -52,12 +57,13 @@ class ClientServerMessage(ABC):
 
 class ClientMessenger():
 
-	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], receive_from_server_polling_seconds: float):
+	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], receive_from_server_polling_seconds: float, is_debug: bool = False):
 
 		self.__client_socket_factory = client_socket_factory
 		self.__server_host_pointer = server_host_pointer
 		self.__client_server_message_class = client_server_message_class
 		self.__receive_from_server_polling_seconds = receive_from_server_polling_seconds
+		self.__is_debug = is_debug
 
 		self.__client_socket = None  # type: ClientSocket
 		self.__receive_from_server_callback = None  # type: Callable[[ClientServerMessage], None]
@@ -74,7 +80,8 @@ class ClientMessenger():
 			)
 
 	def send_to_server(self, *, request_client_server_message: ClientServerMessage):
-		self.__client_socket.write(json.dumps(request_client_server_message.to_json()))
+		message = json.dumps(request_client_server_message.to_json())
+		self.__client_socket.write(message)
 
 	def __receive_from_server(self, read_only_async_handle: ReadOnlyAsyncHandle):
 
@@ -91,16 +98,27 @@ class ClientMessenger():
 			is_message_received = True
 
 		while not read_only_async_handle.is_cancelled():
-			print(f"{datetime.utcnow()}: looping")
+
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: looping")
+
 			is_message_received = False
 			self.__client_socket.read_async(read_callback)
-			print(f"{datetime.utcnow()}: read async")
+
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: read async")
+
 			while not is_message_received and not read_only_async_handle.is_cancelled():
 				time.sleep(self.__receive_from_server_polling_seconds)
-			print(f"{datetime.utcnow()}: done waiting")
+
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: done waiting")
+
 			if receive_from_server_exception is not None:
 				raise receive_from_server_exception
-		print(f"{datetime.utcnow()}: done looping")
+
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: done looping")
 
 	def receive_from_server(self, *, callback: Callable[[ClientServerMessage], None]):
 		if self.__receive_from_server_callback is not None:
@@ -109,18 +127,33 @@ class ClientMessenger():
 			def get_result(read_only_async_handle: ReadOnlyAsyncHandle):
 				try:
 					while not read_only_async_handle.is_cancelled():
-						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read start")
+
+						if self.__is_debug:
+							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read start")
+
 						client_server_message_json_string = self.__client_socket.read()
-						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read end: {client_server_message_json_string}")
+
+						if self.__is_debug:
+							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read end: {client_server_message_json_string}")
+
 						client_server_message = self.__client_server_message_class.parse_from_json(
 							json_object=json.loads(client_server_message_json_string)
 						)  # type: ClientServerMessage
-						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: parsed: {client_server_message.get_client_server_message_type()}")
+
+						if self.__is_debug:
+							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: parsed: {client_server_message.get_client_server_message_type()}")
+
 						callback(client_server_message)
-						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: callback completed")
-					print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: cancelled")
+
+						if self.__is_debug:
+							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: callback completed")
+
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: cancelled")
+
 				except Exception as ex:
-					print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: ex: {ex}")
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: ex: {ex}")
 					raise ex
 			async_handle = AsyncHandle(
 				get_result_method=get_result
@@ -131,18 +164,27 @@ class ClientMessenger():
 			self.__receive_from_server_async_handle = async_handle
 
 	def dispose(self):
-		print(f"{datetime.utcnow()}: ClientMessenger: dispose: start")
+
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: ClientMessenger: dispose: start")
+
 		if self.__receive_from_server_async_handle is not None:
 			self.__receive_from_server_async_handle.cancel()
 			self.__receive_from_server_async_handle = None
 		if self.__client_socket is not None:
-			print(f"{datetime.utcnow()}: ClientMessenger: dispose: closing client socket")
-			self.__client_socket.close(
-				is_forced=True
-			)
-			print(f"{datetime.utcnow()}: ClientMessenger: dispose: closed client socket")
+
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: ClientMessenger: dispose: closing client socket")
+
+			self.__client_socket.close()
+
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: ClientMessenger: dispose: closed client socket")
+
 			self.__client_socket = None
-		print(f"{datetime.utcnow()}: ClientMessenger: dispose: end")
+
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: ClientMessenger: dispose: end")
 
 
 class ClientMessengerFactory():
@@ -267,18 +309,86 @@ class ServerMessenger():
 
 		self.__server_messenger_uuid = str(uuid.uuid4())
 		self.__server_socket = None  # type: ServerSocket
-		self.__kafka_manager = self.__kafka_manager_factory.get_kafka_manager()  # type: KafkaManager
+		self.__kafka_manager = None  # type: KafkaManager
 		self.__is_receiving_from_clients = False
 		self.__client_sockets_per_source_uuid = {}  # type: Dict[str, ClientSocket]
 		self.__client_sockets_per_source_uuid_semaphore = Semaphore()
 		self.__structure = self.__structure_factory.get_structure()
 		self.__kafka_reader_async_handle = None  # type: AsyncHandle
+		self.__kafka_writer = None  # type: KafkaAsyncWriter
+		self.__kafka_writer_semaphore = None  # type: Semaphore
+		self.__is_threaded = False
+		self.__send_socket_kafka_message_to_client_semaphore = Semaphore()
+
+		self.__initialize()
+
+	def __initialize(self):
+
+		self.__kafka_manager = self.__kafka_manager_factory.get_kafka_manager()
+
+		self.__kafka_writer = self.__kafka_manager.get_async_writer().get_result()  # type: KafkaAsyncWriter
+		self.__kafka_writer_semaphore = Semaphore()
+
+	def __send_socket_kafka_message_to_client(self, socket_kafka_message: SocketKafkaMessage):
+
+		try:
+			self.__send_socket_kafka_message_to_client_semaphore.acquire()
+			is_message_sent_to_source = False
+			for source_uuid in self.__client_sockets_per_source_uuid.keys():
+				if socket_kafka_message.get_client_server_message().is_directed_to_destination_uuid(
+					destination_uuid=source_uuid
+				):
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: __send_socket_kafka_message_to_client: sending message to client socket")
+					try:
+						self.__client_sockets_per_source_uuid[source_uuid].write(json.dumps(socket_kafka_message.get_client_server_message().to_json()))
+						is_message_sent_to_source = True
+					except BrokenPipeError as ex:
+						try:
+							self.__client_sockets_per_source_uuid_semaphore.acquire()
+							del self.__client_sockets_per_source_uuid[source_uuid]
+						finally:
+							self.__client_sockets_per_source_uuid_semaphore.release()
+					break
+
+			if self.__is_debug:
+				if is_message_sent_to_source:
+					print(f"{datetime.utcnow()}: ServerMessenger: __send_socket_kafka_message_to_client: message sent")
+				else:
+					print(f"{datetime.utcnow()}: ServerMessenger: __send_socket_kafka_message_to_client: no message sent to a client socket")
+		except Exception as ex:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: ServerMessenger: __send_socket_kafka_message_to_client: ex: {ex}")
+		finally:
+			self.__send_socket_kafka_message_to_client_semaphore.release()
+
+	def __write_socket_kafka_message_to_kafka(self, socket_kafka_message: SocketKafkaMessage, read_only_async_handle: ReadOnlyAsyncHandle):
+
+		if not read_only_async_handle.is_cancelled():
+			self.__kafka_writer_semaphore.acquire()
+			try:
+				write_message_async_handle = self.__kafka_writer.write_message(
+					topic_name=self.__kafka_topic_name,
+					message_bytes=json.dumps(socket_kafka_message.to_json()).encode()
+				)
+				write_message_async_handle.add_parent(
+					async_handle=read_only_async_handle
+				)
+				write_message_async_handle.try_wait(
+					timeout_seconds=0
+				)
+				write_message_async_handle.get_result()
+			finally:
+				self.__kafka_writer_semaphore.release()
+
+	def __on_exception_kafka_write_cycling_unit_of_work(self, exception: Exception):
+		print(f"{datetime.utcnow()}: ServerMessenger: __on_exception_kafka_write_cycling_unit_of_work: ex: {exception}")
 
 	def __kafka_reader_thread_method(self, read_only_async_handle: ReadOnlyAsyncHandle):
 
 		read_message_async_handle = None  # type: AsyncHandle
 
-		if self.__is_debug:
+		if self.__is_debug and False:
 			def test_method():
 				nonlocal read_only_async_handle
 				nonlocal read_message_async_handle
@@ -309,11 +419,6 @@ class ServerMessenger():
 				async_handle=read_only_async_handle
 			)
 			kafka_reader = kafka_reader_async_handle.get_result()  # type: KafkaReader
-			kafka_writer_async_handle = self.__kafka_manager.get_async_writer()
-			kafka_writer_async_handle.add_parent(
-				async_handle=read_only_async_handle
-			)
-			kafka_writer = kafka_writer_async_handle.get_result()  # type: KafkaAsyncWriter
 			while self.__is_receiving_from_clients and not read_only_async_handle.is_cancelled():
 
 				if self.__is_debug:
@@ -351,22 +456,13 @@ class ServerMessenger():
 
 						# check for message waiting to be responded to
 
-						is_message_sent_to_source = False
-						for source_uuid in self.__client_sockets_per_source_uuid.keys():
-							if socket_kafka_message.get_client_server_message().is_directed_to_destination_uuid(
-								destination_uuid=source_uuid
-							):
-								if self.__is_debug:
-									print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: sending message to client socket")
-								self.__client_sockets_per_source_uuid[source_uuid].write(json.dumps(socket_kafka_message.get_client_server_message().to_json()))
-								is_message_sent_to_source = True
-								break
-
-						if self.__is_debug:
-							if is_message_sent_to_source:
-								print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: message sent")
+						if socket_kafka_message.get_client_server_message().is_response():
+							if self.__is_threaded:
+								start_thread(self.__send_socket_kafka_message_to_client, socket_kafka_message)
 							else:
-								print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: no message sent to a client socket")
+								self.__send_socket_kafka_message_to_client(
+									socket_kafka_message=socket_kafka_message
+								)
 
 						# send message into the structure if it needs to be processed
 
@@ -377,28 +473,27 @@ class ServerMessenger():
 							self.__structure.update_structure(
 								update_structure_influence=update_structure_influence
 							)
-							if self.__is_debug:
-								print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: sending {len(update_structure_influence.get_response_client_server_messages())} responses")
-							for response_client_server_message in update_structure_influence.get_response_client_server_messages():
 
-								response_socket_kafka_message = SocketKafkaMessage(
-									source_uuid=self.__server_messenger_uuid,
-									client_server_message=response_client_server_message,
-									create_datetime=datetime.utcnow(),
-									message_uuid=str(uuid.uuid4())
-								)
+							if len(update_structure_influence.get_response_client_server_messages()) != 0:
 
-								write_message_async_handle = kafka_writer.write_message(
-									topic_name=self.__kafka_topic_name,
-									message_bytes=json.dumps(response_socket_kafka_message.to_json()).encode()
-								)
-								write_message_async_handle.add_parent(
-									async_handle=read_only_async_handle
-								)
-								write_message_async_handle.get_result()
+								if self.__is_debug:
+									print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: sending {len(update_structure_influence.get_response_client_server_messages())} responses")
+								for response_client_server_message in update_structure_influence.get_response_client_server_messages():
+									response_socket_kafka_message = SocketKafkaMessage(
+										source_uuid=self.__server_messenger_uuid,
+										client_server_message=response_client_server_message,
+										create_datetime=datetime.utcnow(),
+										message_uuid=str(uuid.uuid4())
+									)
 
-								if read_only_async_handle.is_cancelled():
-									break
+									if self.__is_threaded:
+										start_thread(self.__write_socket_kafka_message_to_kafka, response_socket_kafka_message, read_only_async_handle)
+									else:
+										self.__write_socket_kafka_message_to_kafka(
+											socket_kafka_message=response_socket_kafka_message,
+											read_only_async_handle=read_only_async_handle
+										)
+
 		except Exception as ex:
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: ex: {ex}")
@@ -415,37 +510,55 @@ class ServerMessenger():
 		self.__client_sockets_per_source_uuid[source_uuid] = client_socket
 		self.__client_sockets_per_source_uuid_semaphore.release()
 
-		kafka_writer = self.__kafka_manager.get_async_writer().get_result()  # type: KafkaAsyncWriter
+		process_read_async_handles = []  # type: List[AsyncHandle]
 
 		try:
 			while self.__is_receiving_from_clients:
-				client_server_message = self.__client_server_message_class.parse_from_json(
-					json_object=json.loads(client_socket.read())
+				client_server_message_json_string = client_socket.read()
+
+				def process_read_method(read_only_async_handle: ReadOnlyAsyncHandle):
+					if client_server_message_json_string is None:
+						if self.__is_debug:
+							print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: accepted socket sent empty message")
+					else:
+						# TODO process the message in a separate thread so that the next read can occur
+						client_server_message = self.__client_server_message_class.parse_from_json(
+							json_object=json.loads(client_server_message_json_string)
+						)
+
+						socket_kafka_message = SocketKafkaMessage(
+							source_uuid=source_uuid,
+							client_server_message=client_server_message,
+							create_datetime=datetime.utcnow(),
+							message_uuid=str(uuid.uuid4())
+						)
+
+						if self.__is_debug:
+							print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: writing message: {socket_kafka_message.to_json()}")
+
+						self.__write_socket_kafka_message_to_kafka(
+							socket_kafka_message=socket_kafka_message,
+							read_only_async_handle=read_only_async_handle
+						)
+
+						if self.__is_debug:
+							print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: wrote message: {socket_kafka_message.to_json()}")
+				process_read_async_handle = AsyncHandle(
+					get_result_method=process_read_method
 				)
-
-				socket_kafka_message = SocketKafkaMessage(
-					source_uuid=source_uuid,
-					client_server_message=client_server_message,
-					create_datetime=datetime.utcnow(),
-					message_uuid=str(uuid.uuid4())
+				process_read_async_handle.try_wait(
+					timeout_seconds=0
 				)
-
-				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: writing message")
-
-				kafka_writer.write_message(
-					topic_name=self.__kafka_topic_name,
-					message_bytes=json.dumps(socket_kafka_message.to_json()).encode()
-				).get_result()
-
-				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: wrote message")
+				process_read_async_handles.append(process_read_async_handle)
 
 		except Exception as ex:
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: ex: {ex}")
 			if self.__is_receiving_from_clients:
 				raise ex
+		finally:
+			for process_read_async_handle in process_read_async_handles:
+				process_read_async_handle.cancel()
 
 	def start_receiving_from_clients(self):
 
@@ -481,9 +594,7 @@ class ServerMessenger():
 			self.__client_sockets_per_source_uuid_semaphore.acquire()
 			for source_uuid in self.__client_sockets_per_source_uuid.keys():
 				client_socket = self.__client_sockets_per_source_uuid[source_uuid]
-				client_socket.close(
-					is_forced=True
-				)
+				client_socket.close()
 			self.__client_sockets_per_source_uuid.clear()
 			self.__client_sockets_per_source_uuid_semaphore.release()
 
