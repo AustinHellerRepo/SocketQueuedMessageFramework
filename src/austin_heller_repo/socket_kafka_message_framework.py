@@ -2,8 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from austin_heller_repo.common import StringEnum, HostPointer
 from austin_heller_repo.socket import ClientSocketFactory, ClientSocket, ServerSocketFactory, ServerSocket
-from austin_heller_repo.kafka_manager import KafkaManagerFactory, KafkaManager, KafkaAsyncWriter, KafkaReader, KafkaMessage
-from austin_heller_repo.threading import AsyncHandle, Semaphore, ReadOnlyAsyncHandle, PreparedSemaphoreRequest, SemaphoreRequestQueue, SemaphoreRequest, start_thread, ThreadCycle, ThreadCycleCache, CyclingUnitOfWork
+from austin_heller_repo.threading import AsyncHandle, Semaphore, ReadOnlyAsyncHandle, PreparedSemaphoreRequest, SemaphoreRequestQueue, SemaphoreRequest, start_thread, ThreadCycle, ThreadCycleCache, CyclingUnitOfWork, SequentialQueue, SequentialQueueReader, SequentialQueueWriter, SequentialQueueFactory
 from typing import List, Tuple, Dict, Type, Callable
 import json
 from datetime import datetime
@@ -57,12 +56,11 @@ class ClientServerMessage(ABC):
 
 class ClientMessenger():
 
-	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], receive_from_server_polling_seconds: float, is_debug: bool = False):
+	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], is_debug: bool = False):
 
 		self.__client_socket_factory = client_socket_factory
 		self.__server_host_pointer = server_host_pointer
 		self.__client_server_message_class = client_server_message_class
-		self.__receive_from_server_polling_seconds = receive_from_server_polling_seconds
 		self.__is_debug = is_debug
 
 		self.__client_socket = None  # type: ClientSocket
@@ -82,43 +80,6 @@ class ClientMessenger():
 	def send_to_server(self, *, request_client_server_message: ClientServerMessage):
 		message = json.dumps(request_client_server_message.to_json())
 		self.__client_socket.write(message)
-
-	def __receive_from_server(self, read_only_async_handle: ReadOnlyAsyncHandle):
-
-		is_message_received = None  # type: bool
-		receive_from_server_exception = None  # type: Exception
-
-		def read_callback(message: str):
-			nonlocal is_message_received
-			nonlocal receive_from_server_exception
-			try:
-				self.__receive_from_server_callback(message)
-			except Exception as ex:
-				receive_from_server_exception = ex
-			is_message_received = True
-
-		while not read_only_async_handle.is_cancelled():
-
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: looping")
-
-			is_message_received = False
-			self.__client_socket.read_async(read_callback)
-
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: read async")
-
-			while not is_message_received and not read_only_async_handle.is_cancelled():
-				time.sleep(self.__receive_from_server_polling_seconds)
-
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: done waiting")
-
-			if receive_from_server_exception is not None:
-				raise receive_from_server_exception
-
-		if self.__is_debug:
-			print(f"{datetime.utcnow()}: done looping")
 
 	def receive_from_server(self, *, callback: Callable[[ClientServerMessage], None]):
 		if self.__receive_from_server_callback is not None:
@@ -189,19 +150,17 @@ class ClientMessenger():
 
 class ClientMessengerFactory():
 
-	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], receive_from_server_polling_seconds: float):
+	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage]):
 
 		self.__client_socket_factory = client_socket_factory
 		self.__server_host_pointer = server_host_pointer
 		self.__client_server_message_class = client_server_message_class
-		self.__receive_from_server_polling_seconds = receive_from_server_polling_seconds
 
 	def get_client_messenger(self) -> ClientMessenger:
 		return ClientMessenger(
 			client_socket_factory=self.__client_socket_factory,
 			server_host_pointer=self.__server_host_pointer,
-			client_server_message_class=self.__client_server_message_class,
-			receive_from_server_polling_seconds=self.__receive_from_server_polling_seconds
+			client_server_message_class=self.__client_server_message_class
 		)
 
 
@@ -297,26 +256,25 @@ class StructureFactory(ABC):
 
 class ServerMessenger():
 
-	def __init__(self, *, server_socket_factory: ServerSocketFactory, kafka_manager_factory: KafkaManagerFactory, local_host_pointer: HostPointer, kafka_topic_name: str, client_server_message_class: Type[ClientServerMessage], structure_factory: StructureFactory, is_debug: bool = False):
+	def __init__(self, *, server_socket_factory: ServerSocketFactory, sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], structure_factory: StructureFactory, is_debug: bool = False):
 
 		self.__server_socket_factory = server_socket_factory
-		self.__kafka_manager_factory = kafka_manager_factory
+		self.__sequential_queue_factory = sequential_queue_factory
 		self.__local_host_pointer = local_host_pointer
-		self.__kafka_topic_name = kafka_topic_name
 		self.__client_server_message_class = client_server_message_class
 		self.__structure_factory = structure_factory
 		self.__is_debug = is_debug
 
 		self.__server_messenger_uuid = str(uuid.uuid4())
 		self.__server_socket = None  # type: ServerSocket
-		self.__kafka_manager = None  # type: KafkaManager
+		self.__sequential_queue = None  # type: SequentialQueue
+		self.__sequential_queue_writer = None  # type: SequentialQueueWriter
+		self.__sequential_queue_reader = None  # type: SequentialQueueReader
 		self.__is_receiving_from_clients = False
 		self.__client_sockets_per_source_uuid = {}  # type: Dict[str, ClientSocket]
 		self.__client_sockets_per_source_uuid_semaphore = Semaphore()
 		self.__structure = self.__structure_factory.get_structure()
 		self.__kafka_reader_async_handle = None  # type: AsyncHandle
-		self.__kafka_writer = None  # type: KafkaAsyncWriter
-		self.__kafka_writer_semaphore = None  # type: Semaphore
 		self.__is_threaded = False
 		self.__send_socket_kafka_message_to_client_semaphore = Semaphore()
 
@@ -324,10 +282,9 @@ class ServerMessenger():
 
 	def __initialize(self):
 
-		self.__kafka_manager = self.__kafka_manager_factory.get_kafka_manager()
-
-		self.__kafka_writer = self.__kafka_manager.get_async_writer().get_result()  # type: KafkaAsyncWriter
-		self.__kafka_writer_semaphore = Semaphore()
+		self.__sequential_queue = self.__sequential_queue_factory.get_sequential_queue()
+		self.__sequential_queue_writer = self.__sequential_queue.get_writer().get_result()
+		self.__sequential_queue_reader = self.__sequential_queue.get_reader().get_result()
 
 	def __send_socket_kafka_message_to_client(self, socket_kafka_message: SocketKafkaMessage):
 
@@ -365,21 +322,14 @@ class ServerMessenger():
 	def __write_socket_kafka_message_to_kafka(self, socket_kafka_message: SocketKafkaMessage, read_only_async_handle: ReadOnlyAsyncHandle):
 
 		if not read_only_async_handle.is_cancelled():
-			self.__kafka_writer_semaphore.acquire()
-			try:
-				write_message_async_handle = self.__kafka_writer.write_message(
-					topic_name=self.__kafka_topic_name,
-					message_bytes=json.dumps(socket_kafka_message.to_json()).encode()
-				)
-				write_message_async_handle.add_parent(
-					async_handle=read_only_async_handle
-				)
-				write_message_async_handle.try_wait(
-					timeout_seconds=0
-				)
-				write_message_async_handle.get_result()
-			finally:
-				self.__kafka_writer_semaphore.release()
+
+			write_bytes_async_handle = self.__sequential_queue_writer.write_bytes(
+				message_bytes=json.dumps(socket_kafka_message.to_json()).encode()
+			)
+			write_bytes_async_handle.add_parent(
+				async_handle=read_only_async_handle
+			)
+			write_bytes_async_handle.get_result()
 
 	def __on_exception_kafka_write_cycling_unit_of_work(self, exception: Exception):
 		print(f"{datetime.utcnow()}: ServerMessenger: __on_exception_kafka_write_cycling_unit_of_work: ex: {exception}")
@@ -411,41 +361,33 @@ class ServerMessenger():
 			start_thread(test_method)
 
 		try:
-			kafka_reader_async_handle = self.__kafka_manager.get_reader(
-				topic_name=self.__kafka_topic_name,
-				is_from_beginning=True
-			)
-			kafka_reader_async_handle.add_parent(
-				async_handle=read_only_async_handle
-			)
-			kafka_reader = kafka_reader_async_handle.get_result()  # type: KafkaReader
 			while self.__is_receiving_from_clients and not read_only_async_handle.is_cancelled():
 
 				if self.__is_debug:
 					print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: reading message")
 
-				read_message_async_handle = kafka_reader.read_message()
+				read_bytes_async_handle = self.__sequential_queue_reader.read_bytes()
 
 				if self.__is_debug:
 					print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: setting parent")
 
-				read_message_async_handle.add_parent(
+				read_bytes_async_handle.add_parent(
 					async_handle=read_only_async_handle
 				)
 
 				if self.__is_debug:
 					print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: getting result")
 
-				kafka_message = read_message_async_handle.get_result()  # type: KafkaMessage
+				message_bytes = read_bytes_async_handle.get_result()  # type: bytes
 
 				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: kafka_message: {kafka_message}")
+					print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: kafka_message: {message_bytes}")
 
 				if not read_only_async_handle.is_cancelled():
 					if self.__is_debug:
-						print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: message bytes: {kafka_message.get_message_bytes()}")
+						print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: message bytes: {message_bytes}")
 					socket_kafka_message = SocketKafkaMessage.parse_from_json(
-						json_object=json.loads(kafka_message.get_message_bytes().decode()),
+						json_object=json.loads(message_bytes.decode()),
 						client_server_message_class=self.__client_server_message_class
 					)
 
@@ -590,6 +532,7 @@ class ServerMessenger():
 			self.__server_socket.close()
 			self.__server_socket = None  # type: ServerSocket
 			self.__is_receiving_from_clients = False
+			self.__sequential_queue.dispose()
 			self.__kafka_reader_async_handle.cancel()
 			self.__client_sockets_per_source_uuid_semaphore.acquire()
 			for source_uuid in self.__client_sockets_per_source_uuid.keys():
@@ -601,12 +544,11 @@ class ServerMessenger():
 
 class ServerMessengerFactory():
 
-	def __init__(self, *, server_socket_factory: ServerSocketFactory, kafka_manager_factory: KafkaManagerFactory, local_host_pointer: HostPointer, kafka_topic_name: str, client_server_message_class: Type[ClientServerMessage], structure_factory: StructureFactory, is_debug: bool = False):
+	def __init__(self, *, server_socket_factory: ServerSocketFactory, sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], structure_factory: StructureFactory, is_debug: bool = False):
 
 		self.__server_socket_factory = server_socket_factory
-		self.__kafka_manager_factory = kafka_manager_factory
+		self.__sequential_queue_factory = sequential_queue_factory
 		self.__local_host_pointer = local_host_pointer
-		self.__kafka_topic_name = kafka_topic_name
 		self.__client_server_message_class = client_server_message_class
 		self.__structure_factory = structure_factory
 		self.__is_debug = is_debug
@@ -614,9 +556,8 @@ class ServerMessengerFactory():
 	def get_server_messenger(self) -> ServerMessenger:
 		return ServerMessenger(
 			server_socket_factory=self.__server_socket_factory,
-			kafka_manager_factory=self.__kafka_manager_factory,
+			sequential_queue_factory=self.__sequential_queue_factory,
 			local_host_pointer=self.__local_host_pointer,
-			kafka_topic_name=self.__kafka_topic_name,
 			client_server_message_class=self.__client_server_message_class,
 			structure_factory=self.__structure_factory,
 			is_debug=self.__is_debug

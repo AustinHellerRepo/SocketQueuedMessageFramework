@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: socket-kafka-message-framework-austinhellerrepo
-Version: 0.0.10
+Version: 0.1.0
 Summary: A framework for transferring messages between clients and servers, then pushing/pulling those message via Kafka
 Home-page: https://github.com/AustinHellerRepo/SocketKafkaMessageFramework
 Author: Austin Heller

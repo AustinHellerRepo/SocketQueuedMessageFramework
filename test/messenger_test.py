@@ -3,8 +3,8 @@ import unittest
 from src.austin_heller_repo.socket_kafka_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, UpdateStructureInfluence, StructureFactory
 from austin_heller_repo.socket import ClientSocketFactory, ServerSocketFactory
 from austin_heller_repo.common import HostPointer
-from austin_heller_repo.kafka_manager import KafkaManagerFactory, KafkaWrapper
-from austin_heller_repo.threading import start_thread, Semaphore
+from austin_heller_repo.kafka_manager import KafkaSequentialQueueFactory, KafkaManager, KafkaWrapper, KafkaManagerFactory
+from austin_heller_repo.threading import start_thread, Semaphore, SingletonMemorySequentialQueueFactory
 from typing import List, Tuple, Dict, Callable, Type
 import uuid
 import time
@@ -18,6 +18,7 @@ is_socket_debug_active = False
 is_client_messenger_debug_active = False
 is_server_messenger_debug_active = False
 is_kafka_debug_active = False
+is_kafka_sequential_queue = False
 
 
 class BaseClientServerMessage(ClientServerMessage, ABC):
@@ -529,39 +530,48 @@ def get_default_client_messenger() -> ClientMessenger:
 	return ClientMessenger(
 		client_socket_factory=ClientSocketFactory(
 			to_server_packet_bytes_length=4096,
-			server_read_failed_delay_seconds=0.01,
+			server_read_failed_delay_seconds=0.1,
 			is_ssl=False,
 			is_debug=is_socket_debug_active
 		),
 		server_host_pointer=get_default_local_host_pointer(),
 		client_server_message_class=BaseClientServerMessage,
-		receive_from_server_polling_seconds=0,
 		is_debug=is_client_messenger_debug_active
 	)
 
 
 def get_default_server_messenger() -> ServerMessenger:
 
-	kafka_topic_name = str(uuid.uuid4())
+	if is_kafka_sequential_queue:
 
-	kafka_manager = get_default_kafka_manager_factory().get_kafka_manager()
+		kafka_topic_name = str(uuid.uuid4())
 
-	kafka_manager.add_topic(
-		topic_name=kafka_topic_name
-	).get_result()
+		kafka_manager = get_default_kafka_manager_factory().get_kafka_manager()
+
+		kafka_manager.add_topic(
+			topic_name=kafka_topic_name
+		).get_result()
+
+		sequential_queue_factory = KafkaSequentialQueueFactory(
+			kafka_manager=kafka_manager,
+			kafka_topic_name=kafka_topic_name
+		)
+	else:
+		sequential_queue_factory = SingletonMemorySequentialQueueFactory(
+			reader_failed_read_delay_seconds=0
+		)
 
 	return ServerMessenger(
 		server_socket_factory=ServerSocketFactory(
 			to_client_packet_bytes_length=4096,
 			listening_limit_total=10,
 			accept_timeout_seconds=1.0,
-			client_read_failed_delay_seconds=0.001,
+			client_read_failed_delay_seconds=0.1,
 			is_ssl=False,
 			is_debug=is_socket_debug_active
 		),
-		kafka_manager_factory=get_default_kafka_manager_factory(),
+		sequential_queue_factory=sequential_queue_factory,
 		local_host_pointer=get_default_local_host_pointer(),
-		kafka_topic_name=kafka_topic_name,
 		client_server_message_class=BaseClientServerMessage,
 		structure_factory=ButtonStructureFactory(),
 		is_debug=is_server_messenger_debug_active
@@ -1291,7 +1301,7 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(1)
 
-		expected_pings_total = 1370
+		expected_pings_total = 1000
 
 		print(f"{datetime.utcnow()}: sending first press")
 
@@ -1403,8 +1413,14 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(1)
 
-		expected_pings_total = 1000
-		delay_between_sending_message_seconds = 0.01
+		test_seconds = 10
+		test_messages_per_second = 400
+		expected_pings_total = test_seconds * test_messages_per_second
+		delay_between_sending_message_seconds = 1.0 / test_messages_per_second
+		is_result_plotted = False
+
+		#expected_pings_total = 1000
+		#delay_between_sending_message_seconds = 0.0025
 
 		print(f"{datetime.utcnow()}: sending first press")
 
@@ -1450,6 +1466,8 @@ class MessengerTest(unittest.TestCase):
 				)
 			)
 
+			print(f"{datetime.utcnow()}: starting to send messages")
+
 			sent_datetimes.append(datetime.utcnow())
 			client_messenger.send_to_server(
 				request_client_server_message=PingRequestBaseClientServerMessage()
@@ -1485,9 +1503,10 @@ class MessengerTest(unittest.TestCase):
 			print(f"Max diff seconds {max(diff_seconds_totals)} at {diff_seconds_totals.index(max(diff_seconds_totals))}")
 			print(f"Ave diff seconds {sum(diff_seconds_totals)/expected_pings_total}")
 
-			plt.scatter(sent_datetimes, range(len(sent_datetimes)), s=1, c="red")
-			plt.scatter(received_datetimes, range(len(received_datetimes)), s=1, c="blue")
-			plt.show()
+			if is_result_plotted:
+				plt.scatter(sent_datetimes, range(len(sent_datetimes)), s=1, c="red")
+				plt.scatter(received_datetimes, range(len(received_datetimes)), s=1, c="blue")
+				plt.show()
 
 			cutoff = 150
 			print(f"Min diff seconds {min(diff_seconds_totals[cutoff:])} at {diff_seconds_totals.index(min(diff_seconds_totals[cutoff:]))}")
@@ -1514,5 +1533,9 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(5)
 
 	def test_two_clients_becoming_out_of_sync(self):
+
+		pass
+
+	def test_client_attempts_message_impossible_for_structure_state(self):
 
 		pass
