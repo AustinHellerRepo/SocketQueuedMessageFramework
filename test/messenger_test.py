@@ -21,6 +21,84 @@ is_kafka_debug_active = False
 is_kafka_sequential_queue = False
 
 
+def get_default_local_host_pointer() -> HostPointer:
+	return HostPointer(
+		host_address="0.0.0.0",
+		host_port=36429
+	)
+
+
+def get_default_kafka_host_pointer() -> HostPointer:
+	return HostPointer(
+		host_address="0.0.0.0",
+		host_port=9092
+	)
+
+
+def get_default_kafka_manager_factory() -> KafkaManagerFactory:
+	return KafkaManagerFactory(
+		kafka_wrapper=KafkaWrapper(
+			host_pointer=get_default_kafka_host_pointer()
+		),
+		read_polling_seconds=0,
+		is_cancelled_polling_seconds=0.01,
+		new_topic_partitions_total=1,
+		new_topic_replication_factor=1,
+		remove_topic_cluster_propagation_blocking_timeout_seconds=30,
+		is_debug=is_kafka_debug_active
+	)
+
+
+def get_default_client_messenger() -> ClientMessenger:
+	return ClientMessenger(
+		client_socket_factory=ClientSocketFactory(
+			to_server_packet_bytes_length=4096,
+			server_read_failed_delay_seconds=0.1,
+			is_ssl=False,
+			is_debug=is_socket_debug_active
+		),
+		server_host_pointer=get_default_local_host_pointer(),
+		client_server_message_class=BaseClientServerMessage,
+		is_debug=is_client_messenger_debug_active
+	)
+
+
+def get_default_server_messenger() -> ServerMessenger:
+
+	if is_kafka_sequential_queue:
+
+		kafka_topic_name = str(uuid.uuid4())
+
+		kafka_manager = get_default_kafka_manager_factory().get_kafka_manager()
+
+		kafka_manager.add_topic(
+			topic_name=kafka_topic_name
+		).get_result()
+
+		sequential_queue_factory = KafkaSequentialQueueFactory(
+			kafka_manager=kafka_manager,
+			kafka_topic_name=kafka_topic_name
+		)
+	else:
+		sequential_queue_factory = SingletonMemorySequentialQueueFactory()
+
+	return ServerMessenger(
+		server_socket_factory=ServerSocketFactory(
+			to_client_packet_bytes_length=4096,
+			listening_limit_total=10,
+			accept_timeout_seconds=10.0,
+			client_read_failed_delay_seconds=0.1,
+			is_ssl=False,
+			is_debug=is_socket_debug_active
+		),
+		sequential_queue_factory=sequential_queue_factory,
+		local_host_pointer=get_default_local_host_pointer(),
+		client_server_message_class=BaseClientServerMessage,
+		structure_factory=ButtonStructureFactory(),
+		is_debug=is_server_messenger_debug_active
+	)
+
+
 class BaseClientServerMessage(ClientServerMessage, ABC):
 	pass
 
@@ -498,86 +576,6 @@ class ButtonStructureFactory(StructureFactory):
 		return ButtonStructure()
 
 
-def get_default_local_host_pointer() -> HostPointer:
-	return HostPointer(
-		host_address="0.0.0.0",
-		host_port=36429
-	)
-
-
-def get_default_kafka_host_pointer() -> HostPointer:
-	return HostPointer(
-		host_address="0.0.0.0",
-		host_port=9092
-	)
-
-
-def get_default_kafka_manager_factory() -> KafkaManagerFactory:
-	return KafkaManagerFactory(
-		kafka_wrapper=KafkaWrapper(
-			host_pointer=get_default_kafka_host_pointer()
-		),
-		read_polling_seconds=0,
-		is_cancelled_polling_seconds=0.01,
-		new_topic_partitions_total=1,
-		new_topic_replication_factor=1,
-		remove_topic_cluster_propagation_blocking_timeout_seconds=30,
-		is_debug=is_kafka_debug_active
-	)
-
-
-def get_default_client_messenger() -> ClientMessenger:
-	return ClientMessenger(
-		client_socket_factory=ClientSocketFactory(
-			to_server_packet_bytes_length=4096,
-			server_read_failed_delay_seconds=0.1,
-			is_ssl=False,
-			is_debug=is_socket_debug_active
-		),
-		server_host_pointer=get_default_local_host_pointer(),
-		client_server_message_class=BaseClientServerMessage,
-		is_debug=is_client_messenger_debug_active
-	)
-
-
-def get_default_server_messenger() -> ServerMessenger:
-
-	if is_kafka_sequential_queue:
-
-		kafka_topic_name = str(uuid.uuid4())
-
-		kafka_manager = get_default_kafka_manager_factory().get_kafka_manager()
-
-		kafka_manager.add_topic(
-			topic_name=kafka_topic_name
-		).get_result()
-
-		sequential_queue_factory = KafkaSequentialQueueFactory(
-			kafka_manager=kafka_manager,
-			kafka_topic_name=kafka_topic_name
-		)
-	else:
-		sequential_queue_factory = SingletonMemorySequentialQueueFactory(
-			reader_failed_read_delay_seconds=0
-		)
-
-	return ServerMessenger(
-		server_socket_factory=ServerSocketFactory(
-			to_client_packet_bytes_length=4096,
-			listening_limit_total=10,
-			accept_timeout_seconds=1.0,
-			client_read_failed_delay_seconds=0.1,
-			is_ssl=False,
-			is_debug=is_socket_debug_active
-		),
-		sequential_queue_factory=sequential_queue_factory,
-		local_host_pointer=get_default_local_host_pointer(),
-		client_server_message_class=BaseClientServerMessage,
-		structure_factory=ButtonStructureFactory(),
-		is_debug=is_server_messenger_debug_active
-	)
-
-
 class MessengerTest(unittest.TestCase):
 
 	def setUp(self) -> None:
@@ -681,8 +679,15 @@ class MessengerTest(unittest.TestCase):
 			callback_total += 1
 			self.assertIsInstance(client_server_message, ThreePressesTransmissionBaseClientServerMessage)
 
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
 		client_messenger.receive_from_server(
-			callback=callback
+			callback=callback,
+			on_exception=on_exception
 		)
 
 		print(f"{datetime.utcnow()}: sending announcement")
@@ -730,6 +735,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(5)
 
 		self.assertEqual(1, callback_total)
+		self.assertIsNone(found_exception)
 
 	def test_one_client_sends_two_presses_then_reset(self):
 		# send two presses of the button, then send a reset, and finally wait for a reply
@@ -752,8 +758,15 @@ class MessengerTest(unittest.TestCase):
 			callback_total += 1
 			self.assertIsInstance(client_server_message, ResetTransmissionBaseClientServerMessage)
 
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
 		client_messenger.receive_from_server(
-			callback=callback
+			callback=callback,
+			on_exception=on_exception
 		)
 
 		print(f"{datetime.utcnow()}: sending announcement")
@@ -801,6 +814,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(5)
 
 		self.assertEqual(1, callback_total)
+		self.assertIsNone(found_exception)
 
 	def test_two_clients_each_send_one_press_then_reset(self):
 
@@ -825,8 +839,15 @@ class MessengerTest(unittest.TestCase):
 			callback_total += 1
 			self.assertIsInstance(client_server_message, ResetTransmissionBaseClientServerMessage)
 
+		first_found_exception = None  # type: Exception
+
+		def first_on_exception(exception: Exception):
+			nonlocal first_found_exception
+			first_found_exception = exception
+
 		first_client_messenger.receive_from_server(
-			callback=first_callback
+			callback=first_callback,
+			on_exception=first_on_exception
 		)
 
 		def second_callback(client_server_message: ClientServerMessage):
@@ -835,8 +856,15 @@ class MessengerTest(unittest.TestCase):
 			callback_total += 1
 			self.assertIsInstance(client_server_message, ResetTransmissionBaseClientServerMessage)
 
+		second_found_exception = None  # type: Exception
+
+		def second_on_exception(exception: Exception):
+			nonlocal second_found_exception
+			second_found_exception = exception
+
 		second_client_messenger.receive_from_server(
-			callback=second_callback
+			callback=second_callback,
+			on_exception=second_on_exception
 		)
 
 		print(f"{datetime.utcnow()}: sending first announcement")
@@ -895,6 +923,8 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(5)
 
 		self.assertEqual(2, callback_total)
+		self.assertIsNone(first_found_exception)
+		self.assertIsNone(second_found_exception)
 
 	def test_two_clients_each_send_one_press_then_third_client_reset(self):
 
@@ -920,8 +950,15 @@ class MessengerTest(unittest.TestCase):
 			callback_total += 1
 			self.assertIsInstance(client_server_message, ResetTransmissionBaseClientServerMessage)
 
+		first_found_exception = None  # type: Exception
+
+		def first_on_exception(exception: Exception):
+			nonlocal first_found_exception
+			first_found_exception = exception
+
 		first_client_messenger.receive_from_server(
-			callback=first_callback
+			callback=first_callback,
+			on_exception=first_on_exception
 		)
 
 		def second_callback(client_server_message: ClientServerMessage):
@@ -930,8 +967,15 @@ class MessengerTest(unittest.TestCase):
 			callback_total += 1
 			self.assertIsInstance(client_server_message, ResetTransmissionBaseClientServerMessage)
 
+		second_found_exception = None  # type: Exception
+
+		def second_on_exception(exception: Exception):
+			nonlocal second_found_exception
+			second_found_exception = exception
+
 		second_client_messenger.receive_from_server(
-			callback=second_callback
+			callback=second_callback,
+			on_exception=second_on_exception
 		)
 
 		def third_callback(client_server_message: ClientServerMessage):
@@ -940,8 +984,15 @@ class MessengerTest(unittest.TestCase):
 			callback_total += 1
 			raise Exception(f"Third client should not receive a message.")
 
+		third_found_exception = None  # type: Exception
+
+		def third_on_exception(exception: Exception):
+			nonlocal third_found_exception
+			third_found_exception = exception
+
 		third_client_messenger.receive_from_server(
-			callback=third_callback
+			callback=third_callback,
+			on_exception=third_on_exception
 		)
 
 		print(f"{datetime.utcnow()}: sending first announcement")
@@ -1013,6 +1064,9 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(5)
 
 		self.assertEqual(2, callback_total)
+		self.assertIsNone(first_found_exception)
+		self.assertIsNone(second_found_exception)
+		self.assertIsNone(third_found_exception)
 
 	def test_client_disconnects_before_receiving_intended_message(self):
 		# the first client sends a press, disconnects, then the second client resets
@@ -1039,8 +1093,15 @@ class MessengerTest(unittest.TestCase):
 			callback_total += 1
 			raise Exception("This client should have been disposed of already.")
 
+		first_found_exception = None  # type: Exception
+
+		def first_on_exception(exception: Exception):
+			nonlocal first_found_exception
+			first_found_exception = exception
+
 		first_client_messenger.receive_from_server(
-			callback=first_callback
+			callback=first_callback,
+			on_exception=first_on_exception
 		)
 
 		def second_callback(client_server_message: ClientServerMessage):
@@ -1049,8 +1110,15 @@ class MessengerTest(unittest.TestCase):
 			callback_total += 1
 			raise Exception("This client should not be receiving a message.")
 
+		second_found_exception = None  # type: Exception
+
+		def second_on_exception(exception: Exception):
+			nonlocal second_found_exception
+			second_found_exception = exception
+
 		second_client_messenger.receive_from_server(
-			callback=second_callback
+			callback=second_callback,
+			on_exception=second_on_exception
 		)
 
 		print(f"{datetime.utcnow()}: sending first announcement")
@@ -1079,13 +1147,13 @@ class MessengerTest(unittest.TestCase):
 			request_client_server_message=PressButtonBaseClientServerMessage()
 		)
 
-		time.sleep(0.25)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing first client")
 
 		first_client_messenger.dispose()
 
-		time.sleep(0.1)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: sending reset")
 
@@ -1093,15 +1161,15 @@ class MessengerTest(unittest.TestCase):
 			request_client_server_message=ResetButtonBaseClientServerMessage()
 		)
 
-		time.sleep(0.1)
-
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
 		second_client_messenger.dispose()
+
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposed")
 
@@ -1109,11 +1177,15 @@ class MessengerTest(unittest.TestCase):
 
 		server_messenger.stop_receiving_from_clients()
 
+		time.sleep(1)
+
 		print(f"{datetime.utcnow()}: stopped")
 
 		time.sleep(5)
 
 		self.assertEqual(0, callback_total)
+		self.assertIsNone(first_found_exception)
+		self.assertIsNone(second_found_exception)
 
 	def test_ping(self):
 
@@ -1137,8 +1209,15 @@ class MessengerTest(unittest.TestCase):
 			ping_response_base_client_server_message = client_server_message  # type: PingResponseBaseClientServerMessage
 			self.assertEqual(0, ping_response_base_client_server_message.get_ping_index())
 
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
 		client_messenger.receive_from_server(
-			callback=callback
+			callback=callback,
+			on_exception=on_exception
 		)
 
 		print(f"{datetime.utcnow()}: sending first announcement")
@@ -1178,6 +1257,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(5)
 
 		self.assertEqual(1, callback_total)
+		self.assertIsNone(found_exception)
 
 	def test_single_client_quickly_pings_using_threading(self):
 		# spam pings and detect timing differences between sends and receives
@@ -1216,8 +1296,15 @@ class MessengerTest(unittest.TestCase):
 			if expected_ping_index == expected_pings_total:
 				last_message_datetime = datetime.utcnow()
 
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
 		client_messenger.receive_from_server(
-			callback=callback
+			callback=callback,
+			on_exception=on_exception
 		)
 
 		print(f"{datetime.utcnow()}: sending first announcement")
@@ -1292,6 +1379,8 @@ class MessengerTest(unittest.TestCase):
 		print(f"Messages per seconds: {messages_per_second}")
 		print(f"Seconds per message: {1.0 / messages_per_second}")
 
+		self.assertIsNone(found_exception)
+
 	def test_single_client_quickly_pings_burst(self):
 		# spam pings and detect timing differences between sends and receives
 
@@ -1305,8 +1394,11 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: sending first press")
 
+		found_exception = None  # type: Exception
+
 		def ping_thread_method():
 			nonlocal expected_pings_total
+			nonlocal found_exception
 
 			client_messenger = get_default_client_messenger()
 
@@ -1337,8 +1429,13 @@ class MessengerTest(unittest.TestCase):
 					received_last_message_datetime = datetime.utcnow()
 				callback_semaphore.release()
 
+			def on_exception(exception: Exception):
+				nonlocal found_exception
+				found_exception = exception
+
 			client_messenger.receive_from_server(
-				callback=callback
+				callback=callback,
+				on_exception=on_exception
 			)
 
 			print(f"{datetime.utcnow()}: sending first announcement")
@@ -1404,6 +1501,8 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(5)
 
+		self.assertIsNone(found_exception)
+
 	def test_single_client_quickly_pings_delayed(self):
 		# spam pings and detect timing differences between sends and receives
 
@@ -1414,7 +1513,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		test_seconds = 10
-		test_messages_per_second = 400
+		test_messages_per_second = 300
 		expected_pings_total = test_seconds * test_messages_per_second
 		delay_between_sending_message_seconds = 1.0 / test_messages_per_second
 		is_result_plotted = False
@@ -1424,9 +1523,12 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: sending first press")
 
+		found_exception = None  # type: Exception
+
 		def ping_thread_method():
 			nonlocal expected_pings_total
 			nonlocal delay_between_sending_message_seconds
+			nonlocal found_exception
 
 			client_messenger = get_default_client_messenger()
 
@@ -1454,8 +1556,13 @@ class MessengerTest(unittest.TestCase):
 				received_datetimes.append(datetime.utcnow())
 				callback_semaphore.release()
 
+			def on_exception(exception: Exception):
+				nonlocal found_exception
+				found_exception = exception
+
 			client_messenger.receive_from_server(
-				callback=callback
+				callback=callback,
+				on_exception=on_exception
 			)
 
 			print(f"{datetime.utcnow()}: sending first announcement")
@@ -1532,10 +1639,16 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(5)
 
+		self.assertIsNone(found_exception)
+
 	def test_two_clients_becoming_out_of_sync(self):
 
 		pass
 
 	def test_client_attempts_message_impossible_for_structure_state(self):
+
+		pass
+
+	def test_parse_client_server_message_raises_exception_when_receiving_in_client_messenger(self):
 
 		pass
