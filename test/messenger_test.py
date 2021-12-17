@@ -109,6 +109,10 @@ class BaseClientServerMessage(ClientServerMessage, ABC):
 			return AnnounceBaseClientServerMessage.parse_from_json(
 				json_object=json_object
 			)
+		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.AnnounceFailed:
+			return AnnounceFailedBaseClientServerMessage.parse_from_json(
+				json_object=json_object
+			)
 		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.HelloWorld:
 			return HelloWorldBaseClientServerMessage.parse_from_json(
 				json_object=json_object
@@ -137,6 +141,14 @@ class BaseClientServerMessage(ClientServerMessage, ABC):
 			return PingResponseBaseClientServerMessage.parse_from_json(
 				json_object=json_object
 			)
+		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.EchoRequest:
+			return EchoRequestBaseClientServerMessage.parse_from_json(
+				json_object=json_object
+			)
+		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.EchoResponse:
+			return EchoResponseBaseClientServerMessage.parse_from_json(
+				json_object=json_object
+			)
 		else:
 			raise Exception(f"Unexpected BaseClientServerMessageTypeEnum: {base_client_server_message_type}")
 
@@ -144,12 +156,15 @@ class BaseClientServerMessage(ClientServerMessage, ABC):
 class BaseClientServerMessageTypeEnum(ClientServerMessageTypeEnum):
 	HelloWorld = "hello_world"  # basic test
 	Announce = "announce"  # announces name to structure
+	AnnounceFailed = "announce_failed"  # announce failed to apply to structure
 	PressButton = "press_button"  # structural influence, three presses cause broadcast of transmission to users
 	ResetButton = "reset_button"  # structural_influence, resets number of presses and informs button pressers that it was reset
 	ResetTransmission = "reset_transmission"  # directed to specific users that pressed the button
 	ThreePressesTransmission = "three_presses_transmission"  # broadcasts to all users that the button was pressed three times and then resets the button
 	PingRequest = "ping_request"  # pings the server and gets a response
 	PingResponse = "ping_response"  # the response from the ping request
+	EchoRequest = "echo_request"  # records the messages that should be echoed back
+	EchoResponse = "echo_response"  # the response containing the echo message
 
 
 class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
@@ -179,11 +194,17 @@ class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 	def is_response(self) -> bool:
 		return False
 
-	def is_directed_to_destination_uuid(self, *, destination_uuid: str) -> bool:
-		return False
+	def get_destination_uuid(self) -> str:
+		return None
 
 	def is_structural_influence(self) -> bool:
 		return False
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
 
 
 class AnnounceBaseClientServerMessage(BaseClientServerMessage):
@@ -218,11 +239,61 @@ class AnnounceBaseClientServerMessage(BaseClientServerMessage):
 	def is_response(self) -> bool:
 		return False
 
-	def is_directed_to_destination_uuid(self, *, destination_uuid: str) -> bool:
-		return False
+	def get_destination_uuid(self) -> str:
+		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return AnnounceFailedBaseClientServerMessage(
+			client_uuid=destination_uuid
+		)
+
+
+class AnnounceFailedBaseClientServerMessage(BaseClientServerMessage):
+
+	def __init__(self, *, client_uuid: str):
+		super().__init__()
+
+		self.__client_uuid = client_uuid
+
+	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+		return BaseClientServerMessageTypeEnum.AnnounceFailed
+
+	def to_json(self) -> Dict:
+		json_object = super().to_json()
+		json_object["client_uuid"] = self.__client_uuid
+		return json_object
+
+	@staticmethod
+	def parse_from_json(*, json_object: Dict) -> AnnounceFailedBaseClientServerMessage:
+		ClientServerMessage.remove_base_keys(
+			json_object=json_object
+		)
+		if len(json_object) != 1:
+			raise Exception(f"Unexpected properties sent to be parsed into {AnnounceFailedBaseClientServerMessage.__name__}")
+		return AnnounceFailedBaseClientServerMessage(
+			**json_object
+		)
+
+	def is_response(self) -> bool:
+		return True
+
+	def get_destination_uuid(self) -> str:
+		return self.__client_uuid
+
+	def is_structural_influence(self) -> bool:
+		return False
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
 
 
 class PressButtonBaseClientServerMessage(BaseClientServerMessage):
@@ -252,11 +323,17 @@ class PressButtonBaseClientServerMessage(BaseClientServerMessage):
 	def is_response(self) -> bool:
 		return False
 
-	def is_directed_to_destination_uuid(self, *, destination_uuid: str) -> bool:
-		return False
+	def get_destination_uuid(self) -> str:
+		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
 
 
 class ResetButtonBaseClientServerMessage(BaseClientServerMessage):
@@ -286,11 +363,17 @@ class ResetButtonBaseClientServerMessage(BaseClientServerMessage):
 	def is_response(self) -> bool:
 		return False
 
-	def is_directed_to_destination_uuid(self, *, destination_uuid: str) -> bool:
-		return False
+	def get_destination_uuid(self) -> str:
+		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
 
 
 class ResetTransmissionBaseClientServerMessage(BaseClientServerMessage):
@@ -322,11 +405,17 @@ class ResetTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def is_response(self) -> bool:
 		return True
 
-	def is_directed_to_destination_uuid(self, *, destination_uuid: str) -> bool:
-		return self.__client_uuid == destination_uuid
+	def get_destination_uuid(self) -> str:
+		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return False
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
 
 
 class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
@@ -358,11 +447,17 @@ class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def is_response(self) -> bool:
 		return True
 
-	def is_directed_to_destination_uuid(self, *, destination_uuid: str) -> bool:
-		return self.__client_uuid == destination_uuid
+	def get_destination_uuid(self) -> str:
+		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return True
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
 
 
 class PingRequestBaseClientServerMessage(BaseClientServerMessage):
@@ -389,11 +484,17 @@ class PingRequestBaseClientServerMessage(BaseClientServerMessage):
 	def is_response(self) -> bool:
 		return False
 
-	def is_directed_to_destination_uuid(self, *, destination_uuid: str) -> bool:
-		return False
+	def get_destination_uuid(self) -> str:
+		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
 
 
 class PingResponseBaseClientServerMessage(BaseClientServerMessage):
@@ -430,11 +531,109 @@ class PingResponseBaseClientServerMessage(BaseClientServerMessage):
 	def is_response(self) -> bool:
 		return True
 
-	def is_directed_to_destination_uuid(self, *, destination_uuid: str) -> bool:
-		return self.__client_uuid == destination_uuid
+	def get_destination_uuid(self) -> str:
+		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return False
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
+
+
+class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
+
+	def __init__(self, *, message: str):
+		super().__init__()
+
+		self.__message = message
+
+	def get_message(self) -> str:
+		return self.__message
+
+	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+		return BaseClientServerMessageTypeEnum.EchoRequest
+
+	def to_json(self) -> Dict:
+		json_object = super().to_json()
+		json_object["message"] = self.__message
+		return json_object
+
+	@staticmethod
+	def parse_from_json(*, json_object: Dict) -> EchoRequestBaseClientServerMessage:
+		ClientServerMessage.remove_base_keys(
+			json_object=json_object
+		)
+		if len(json_object) != 1:
+			raise Exception(f"Unexpected properties sent to be parsed into {EchoRequestBaseClientServerMessage.__name__}")
+		return EchoRequestBaseClientServerMessage(
+			**json_object
+		)
+
+	def is_response(self) -> bool:
+		return False
+
+	def get_destination_uuid(self) -> str:
+		return None
+
+	def is_structural_influence(self) -> bool:
+		return True
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
+
+
+class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
+
+	def __init__(self, *, message: str, client_uuid: str):
+		super().__init__()
+
+		self.__message = message
+		self.__client_uuid = client_uuid
+
+	def get_message(self) -> str:
+		return self.__message
+
+	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+		return BaseClientServerMessageTypeEnum.EchoResponse
+
+	def to_json(self) -> Dict:
+		json_object = super().to_json()
+		json_object["message"] = self.__message
+		json_object["client_uuid"] = self.__client_uuid
+		return json_object
+
+	@staticmethod
+	def parse_from_json(*, json_object: Dict) -> EchoResponseBaseClientServerMessage:
+		ClientServerMessage.remove_base_keys(
+			json_object=json_object
+		)
+		if len(json_object) != 2:
+			raise Exception(f"Unexpected properties sent to be parsed into {EchoResponseBaseClientServerMessage.__name__}")
+		return EchoResponseBaseClientServerMessage(
+			**json_object
+		)
+
+	def is_response(self) -> bool:
+		return True
+
+	def get_destination_uuid(self) -> str:
+		return self.__client_uuid
+
+	def is_structural_influence(self) -> bool:
+		return False
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
 
 
 class ButtonStructureStateEnum(StructureStateEnum):
@@ -520,6 +719,13 @@ class ButtonStructure(Structure):
 			before=f"_{ButtonStructure.__name__}{ButtonStructure.__ping_requested.__name__}"
 		)
 
+		self.add_transition(
+			trigger=BaseClientServerMessageTypeEnum.EchoRequest.value,
+			source=ButtonStructureStateEnum.ZeroPresses.value,
+			dest=ButtonStructureStateEnum.ZeroPresses.value,
+			before=f"_{ButtonStructure.__name__}{ButtonStructure.__echo_requested.__name__}"
+		)
+
 	def __name_announced(self, update_structure_influence: UpdateStructureInfluence):
 		client_uuid = update_structure_influence.get_socket_kafka_message().get_source_uuid()
 		announce_base_client_server_message = update_structure_influence.get_socket_kafka_message().get_client_server_message()  # type: AnnounceBaseClientServerMessage
@@ -564,6 +770,16 @@ class ButtonStructure(Structure):
 		)
 		self.__pings_total += 1
 
+	def __echo_requested(self, update_structure_influence: UpdateStructureInfluence):
+		client_uuid = update_structure_influence.get_socket_kafka_message().get_source_uuid()
+		message = update_structure_influence.get_socket_kafka_message().get_client_server_message().get_message()
+		update_structure_influence.add_response_client_server_message(
+			client_server_message=EchoResponseBaseClientServerMessage(
+				message=message,
+				client_uuid=client_uuid
+			)
+		)
+
 
 class ButtonStructureFactory(StructureFactory):
 
@@ -574,6 +790,31 @@ class ButtonStructureFactory(StructureFactory):
 
 	def get_structure(self) -> Structure:
 		return ButtonStructure()
+
+
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
 
 
 class MessengerTest(unittest.TestCase):
@@ -1063,10 +1304,10 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(5)
 
-		self.assertEqual(2, callback_total)
 		self.assertIsNone(first_found_exception)
 		self.assertIsNone(second_found_exception)
 		self.assertIsNone(third_found_exception)
+		self.assertEqual(2, callback_total)
 
 	def test_client_disconnects_before_receiving_intended_message(self):
 		# the first client sends a press, disconnects, then the second client resets
@@ -1513,7 +1754,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		test_seconds = 10
-		test_messages_per_second = 300
+		test_messages_per_second = 200
 		expected_pings_total = test_seconds * test_messages_per_second
 		delay_between_sending_message_seconds = 1.0 / test_messages_per_second
 		is_result_plotted = False
@@ -1641,14 +1882,394 @@ class MessengerTest(unittest.TestCase):
 
 		self.assertIsNone(found_exception)
 
-	def test_two_clients_becoming_out_of_sync(self):
+	def test_client_attempts_message_impossible_for_structure_state_but_exception_in_callback(self):
+		# attempt to reset the presses without first pressing the button
 
-		pass
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		expected_exception = Exception(f"Client should not receive any messages as part of this test.")
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			nonlocal expected_exception
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			callback_total += 1
+			raise expected_exception
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending press")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		time.sleep(1)
+
+		print(f"{datetime.utcnow()}: sending announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="Test Name"
+			)
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposed")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
+		self.assertIsNotNone(found_exception)
+		self.assertEqual(expected_exception, found_exception)
 
 	def test_client_attempts_message_impossible_for_structure_state(self):
+		# attempt to reset the presses without first pressing the button
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			callback_total += 1
+			self.assertIsInstance(client_server_message, AnnounceFailedBaseClientServerMessage)
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending press")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		time.sleep(1)
+
+		print(f"{datetime.utcnow()}: sending announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="Test Name"
+			)
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposed")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
+		self.assertIsNone(found_exception)
+
+	def test_order_of_messages(self):
+		# send multiple messages from the same client to the server, expecting the response order to be the same
+
+		messages_total = 1000
+
+		print(f"{datetime.utcnow()}: setting up server")
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: setting up client")
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		callback_total = 0
+		last_message_index = -1
+		failed_at_message_index = None  # type: int
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			nonlocal last_message_index
+			nonlocal failed_at_message_index
+			# print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			self.assertIsInstance(client_server_message, EchoResponseBaseClientServerMessage)
+			echo_response_client_server_message = client_server_message  # type: EchoResponseBaseClientServerMessage
+
+			if int(echo_response_client_server_message.get_message()) == last_message_index + 1:
+				# correct message received
+				last_message_index += 1
+			else:
+				if failed_at_message_index is None:
+					failed_at_message_index = last_message_index
+
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			if found_exception is None:
+				found_exception = exception
+
+		client_messenger.connect_to_server()
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		for message_index in range(messages_total):
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=str(message_index)
+				)
+			)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		if found_exception is not None:
+			raise found_exception
+		self.assertIsNone(failed_at_message_index)
+
+	def test_two_clients_becoming_out_of_sync(self):
+		# as the delay between two different clients send messages shrinks, how often are the messages received in the wrong order
+
+		current_delay_between_messages_seconds = 1
+		delay_percentage_decrease_delta = 0.1
+		minimum_delay_between_messages_seconds = 0.0001
+		accepted_delay_between_messages_that_could_result_in_disorder = 0.001
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: setting up clients")
+		time.sleep(1)
+
+		client_messengers = []  # type: List[ClientMessenger]
+		client_messengers.append(get_default_client_messenger())
+		client_messengers.append(get_default_client_messenger())
+
+		callback_total = 0
+		last_message_index = -1
+		failed_at_message_index = None  # type: int
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			nonlocal last_message_index
+			nonlocal failed_at_message_index
+			#print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			self.assertIsInstance(client_server_message, EchoResponseBaseClientServerMessage)
+			echo_response_client_server_message = client_server_message  # type: EchoResponseBaseClientServerMessage
+
+			if int(echo_response_client_server_message.get_message()) == last_message_index + 1:
+				# correct message received
+				last_message_index += 1
+			else:
+				if failed_at_message_index is None:
+					failed_at_message_index = last_message_index
+
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			if found_exception is None:
+				found_exception = exception
+
+		for client_messenger in client_messengers:
+			client_messenger.connect_to_server()
+			client_messenger.receive_from_server(
+				callback=callback,
+				on_exception=on_exception
+			)
+
+		print(f"{datetime.utcnow()}: sending messages")
+
+		client_messengers_index = 0
+		message_index = 0
+		client_messengers[client_messengers_index].send_to_server(
+			request_client_server_message=EchoRequestBaseClientServerMessage(
+				message=str(message_index)
+			)
+		)
+		message_index += 1
+		while minimum_delay_between_messages_seconds < current_delay_between_messages_seconds and failed_at_message_index is None:
+			time.sleep(current_delay_between_messages_seconds)
+			client_messengers_index += 1
+			if client_messengers_index == len(client_messengers):
+				client_messengers_index = 0
+			client_messengers[client_messengers_index].send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=str(message_index)
+				)
+			)
+			message_index += 1
+			current_delay_between_messages_seconds -= current_delay_between_messages_seconds * delay_percentage_decrease_delta
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing")
+
+		for client_messenger in client_messengers:
+			client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposed")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		if found_exception is not None:
+			raise found_exception
+		print(f"{datetime.utcnow()}: last successful index {failed_at_message_index} with delay of {current_delay_between_messages_seconds} seconds")
+		self.assertLess(current_delay_between_messages_seconds, accepted_delay_between_messages_that_could_result_in_disorder)
+
+	def test_dispose_client_too_quickly_before_receiving_all_messages(self):
+		# a thread seems to remain alive when this happens
+
+		messages_total = 1000
+
+		print(f"{datetime.utcnow()}: setting up server")
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: setting up client")
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		callback_total = 0
+		last_message_index = -1
+		failed_at_message_index = None  # type: int
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			nonlocal last_message_index
+			nonlocal failed_at_message_index
+			# print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			self.assertIsInstance(client_server_message, EchoResponseBaseClientServerMessage)
+			echo_response_client_server_message = client_server_message  # type: EchoResponseBaseClientServerMessage
+
+			if int(echo_response_client_server_message.get_message()) == last_message_index + 1:
+				# correct message received
+				last_message_index += 1
+			else:
+				if failed_at_message_index is None:
+					failed_at_message_index = last_message_index
+
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			if found_exception is None:
+				found_exception = exception
+
+		client_messenger.connect_to_server()
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		for message_index in range(messages_total):
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=str(message_index)
+				)
+			)
+
+		print(f"{datetime.utcnow()}: immediately disposing")
+
+		client_messenger.dispose()
+
+		server_messenger.stop_receiving_from_clients()
+
+		if found_exception is not None:
+			raise found_exception
+		self.assertIsNone(failed_at_message_index)
+
+		raise NotImplementedError()
+
+	def test_parse_client_server_message_raises_exception_when_receiving_in_client_messenger(self):
 
 		pass
 
-	def test_parse_client_server_message_raises_exception_when_receiving_in_client_messenger(self):
+
+	def test_unordered_client_server_messages(self):
 
 		pass

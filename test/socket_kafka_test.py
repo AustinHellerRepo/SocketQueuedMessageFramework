@@ -2,7 +2,7 @@ import unittest
 from austin_heller_repo.socket import ServerSocketFactory, ClientSocketFactory, ServerSocket, ClientSocket
 from austin_heller_repo.kafka_manager import KafkaManagerFactory, KafkaManager, KafkaAsyncWriter, KafkaReader, KafkaMessage, KafkaWrapper
 from austin_heller_repo.common import HostPointer
-from austin_heller_repo.threading import start_thread
+from austin_heller_repo.threading import start_thread, SingletonMemorySequentialQueue, SingletonMemorySequentialQueueWriter, SingletonMemorySequentialQueueReader
 import time
 from typing import List, Tuple, Dict
 from datetime import datetime
@@ -317,3 +317,129 @@ class SocketKafkaTest(unittest.TestCase):
 		plt.scatter(read_datetimes, range(len(read_datetimes)), s=1, c="blue")
 		plt.show()
 
+	def test_send_from_client_to_server_then_to_singleton_memory_sequential_queue_write_and_read(self):
+
+		expected_messages_total = 1000
+
+		client_socket = get_default_client_socket_factory().get_client_socket()
+
+		server_socket = get_default_server_socket_factory().get_server_socket()
+
+		sequential_queue = SingletonMemorySequentialQueue()
+		sequential_queue_reader = sequential_queue.get_reader().get_result()  # type: SingletonMemorySequentialQueueReader
+		sequential_queue_writer = sequential_queue.get_writer().get_result()  # type: SingletonMemorySequentialQueueWriter
+
+		write_datetimes = []  # type: List[datetime]
+		read_datetimes = []  # type: List[datetime]
+
+		accepted_client_socket = None  # type: ClientSocket
+
+		def on_accepted_client_method(client_socket: ClientSocket):
+			nonlocal accepted_client_socket
+			accepted_client_socket = client_socket
+
+		server_socket.start_accepting_clients(
+			host_ip_address=get_default_local_host_pointer().get_host_address(),
+			host_port=get_default_local_host_pointer().get_host_port(),
+			on_accepted_client_method=on_accepted_client_method
+		)
+
+		time.sleep(1)
+
+		client_socket.connect_to_server(
+			ip_address=get_default_local_host_pointer().get_host_address(),
+			port=get_default_local_host_pointer().get_host_port()
+		)
+
+		time.sleep(1)
+
+		def write_messages_to_kafka_thread_method():
+			nonlocal accepted_client_socket
+			nonlocal expected_messages_total
+			nonlocal sequential_queue_writer
+
+			for index in range(expected_messages_total):
+				message = accepted_client_socket.read()
+				sequential_queue_writer.write_bytes(
+					message_bytes=message.encode()
+				).get_result()
+
+		def write_messages_to_socket_thread_method():
+			nonlocal client_socket
+			nonlocal expected_messages_total
+			nonlocal write_datetimes
+
+			for index in range(expected_messages_total):
+				write_datetimes.append(datetime.utcnow())
+				client_socket.write(str(index))
+				time.sleep(0.01)
+
+		def read_messages_from_kafka_thread_method():
+			nonlocal sequential_queue_reader
+			nonlocal accepted_client_socket
+			nonlocal expected_messages_total
+
+			for index in range(expected_messages_total):
+				kafka_message_bytes = sequential_queue_reader.read_bytes().get_result()  # type: bytes
+				accepted_client_socket.write(kafka_message_bytes.decode())
+
+		def read_messages_from_socket_thread_method():
+			nonlocal client_socket
+			nonlocal expected_messages_total
+			nonlocal read_datetimes
+
+			for index in range(expected_messages_total):
+				message = client_socket.read()
+				self.assertEqual(str(index), message)
+				read_datetimes.append(datetime.utcnow())
+
+		read_messages_from_socket_thread = start_thread(read_messages_from_socket_thread_method)
+		read_messages_from_kafka_thread = start_thread(read_messages_from_kafka_thread_method)
+		write_messages_to_kafka_thread = start_thread(write_messages_to_kafka_thread_method)
+		write_messages_to_socket_thread = start_thread(write_messages_to_socket_thread_method)
+
+		read_messages_from_socket_thread.join()
+		read_messages_from_kafka_thread.join()
+		write_messages_to_kafka_thread.join()
+		write_messages_to_socket_thread.join()
+
+		client_socket.close()
+
+		time.sleep(1)
+
+		accepted_client_socket.close()
+
+		time.sleep(1)
+
+		server_socket.stop_accepting_clients()
+
+		time.sleep(1)
+
+		server_socket.close()
+
+		time.sleep(1)
+
+		sequential_queue.dispose()
+
+		time.sleep(1)
+
+		sequential_queue_reader.dispose()
+
+		time.sleep(1)
+
+		sequential_queue_writer.dispose()
+
+		time.sleep(1)
+
+		diff_seconds_totals = []  # type: List[float]
+		for write_datetime, read_datetime in zip(write_datetimes, read_datetimes):
+			seconds_total = (read_datetime - write_datetime).total_seconds()
+			diff_seconds_totals.append(seconds_total)
+
+		print(f"Min diff seconds {min(diff_seconds_totals)} at {diff_seconds_totals.index(min(diff_seconds_totals))}")
+		print(f"Max diff seconds {max(diff_seconds_totals)} at {diff_seconds_totals.index(max(diff_seconds_totals))}")
+		print(f"Ave diff seconds {sum(diff_seconds_totals) / expected_messages_total}")
+
+		plt.scatter(write_datetimes, range(len(write_datetimes)), s=1, c="red")
+		plt.scatter(read_datetimes, range(len(read_datetimes)), s=1, c="blue")
+		plt.show()
