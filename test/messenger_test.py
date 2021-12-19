@@ -1,7 +1,7 @@
 from __future__ import annotations
 import unittest
 from src.austin_heller_repo.socket_kafka_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, UpdateStructureInfluence, StructureFactory
-from austin_heller_repo.socket import ClientSocketFactory, ServerSocketFactory
+from austin_heller_repo.socket import ClientSocketFactory, ServerSocketFactory, ReadWriteSocketClosedException
 from austin_heller_repo.common import HostPointer
 from austin_heller_repo.kafka_manager import KafkaSequentialQueueFactory, KafkaManager, KafkaWrapper, KafkaManagerFactory
 from austin_heller_repo.threading import start_thread, Semaphore, SingletonMemorySequentialQueueFactory
@@ -149,6 +149,14 @@ class BaseClientServerMessage(ClientServerMessage, ABC):
 			return EchoResponseBaseClientServerMessage.parse_from_json(
 				json_object=json_object
 			)
+		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.ErrorRequest:
+			return ErrorRequestBaseClientServerMessage.parse_from_json(
+				json_object=json_object
+			)
+		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.ErrorResponse:
+			return ErrorResponseBaseClientServerMessage.parse_from_json(
+				json_object=json_object
+			)
 		else:
 			raise Exception(f"Unexpected BaseClientServerMessageTypeEnum: {base_client_server_message_type}")
 
@@ -165,6 +173,11 @@ class BaseClientServerMessageTypeEnum(ClientServerMessageTypeEnum):
 	PingResponse = "ping_response"  # the response from the ping request
 	EchoRequest = "echo_request"  # records the messages that should be echoed back
 	EchoResponse = "echo_response"  # the response containing the echo message
+	ErrorOnGetClientServerMessageType = "error_on_get_client_server_message_type"
+	ErrorRequest = "error_request"  # a request that throws an exception as defined in the constructor
+	ErrorResponse = "error_response"  # the response that will throw a predefined exception
+	PowerButton = "power_button"  # increments a child structure by the number of presses processed by the parent structure
+	PowerOverloadTransmission = "power_overload_transmission"  # if the power button is pressed three times at any stage of normal button presses an overload transmission is sent out to all clients involved
 
 
 class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
@@ -420,10 +433,14 @@ class ResetTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
 class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str):
+	def __init__(self, *, client_uuid: str, power: int):
 		super().__init__()
 
 		self.__client_uuid = client_uuid
+		self.__power = power
+
+	def get_power(self) -> int:
+		return self.__power
 
 	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.ThreePressesTransmission
@@ -546,10 +563,11 @@ class PingResponseBaseClientServerMessage(BaseClientServerMessage):
 
 class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, message: str):
+	def __init__(self, *, message: str, is_ordered: bool):
 		super().__init__()
 
 		self.__message = message
+		self.__is_ordered = is_ordered
 
 	def get_message(self) -> str:
 		return self.__message
@@ -567,7 +585,7 @@ class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 		ClientServerMessage.remove_base_keys(
 			json_object=json_object
 		)
-		if len(json_object) != 1:
+		if len(json_object) != 2:
 			raise Exception(f"Unexpected properties sent to be parsed into {EchoRequestBaseClientServerMessage.__name__}")
 		return EchoRequestBaseClientServerMessage(
 			**json_object
@@ -583,7 +601,7 @@ class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 		return True
 
 	def is_ordered(self) -> bool:
-		return True
+		return self.__is_ordered
 
 	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
 		return None
@@ -634,6 +652,288 @@ class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
 
 	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
 		return None
+
+
+class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
+
+	def __init__(self, *, is_constructor_exception_to_set: str = None, constructor_exception: str = None, get_client_server_message_type_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, get_destination_uuid_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None, response_constructor_arguments: Dict = None):
+		super().__init__()
+
+		self.__is_constructor_exception_to_set = is_constructor_exception_to_set
+		self.__constructor_exception = constructor_exception
+		self.__get_client_server_message_type_exception = get_client_server_message_type_exception
+		self.__to_json_exception = to_json_exception
+		self.__is_response_exception = is_response_exception
+		self.__get_destination_uuid_exception = get_destination_uuid_exception
+		self.__is_structural_influence_exception = is_structural_influence_exception
+		self.__is_ordered_exception = is_ordered_exception
+		self.__get_structural_error_client_server_message_response_exception = get_structural_error_client_server_message_response_exception
+		self.__response_constructor_arguments = response_constructor_arguments
+
+		if self.__constructor_exception is not None:
+			raise Exception(self.__constructor_exception)
+
+		if self.__is_constructor_exception_to_set is not None:
+			self.__constructor_exception = self.__is_constructor_exception_to_set
+			self.__is_constructor_exception_to_set = None
+
+	def get_response_constructor_arguments(self) -> Dict:
+		return self.__response_constructor_arguments
+
+	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+
+		if self.__get_client_server_message_type_exception is not None:
+			raise Exception(self.__get_client_server_message_type_exception)
+
+		return BaseClientServerMessageTypeEnum.ErrorRequest
+
+	def to_json(self) -> Dict:
+
+		if self.__to_json_exception is not None:
+			raise Exception(self.__to_json_exception)
+
+		json_object = super().to_json()
+		json_object["is_constructor_exception_to_set"] = self.__is_constructor_exception_to_set
+		json_object["constructor_exception"] = self.__constructor_exception
+		json_object["get_client_server_message_type_exception"] = self.__get_client_server_message_type_exception
+		json_object["to_json_exception"] = self.__to_json_exception
+		json_object["is_response_exception"] = self.__is_response_exception
+		json_object["get_destination_uuid_exception"] = self.__get_destination_uuid_exception
+		json_object["is_structural_influence_exception"] = self.__is_structural_influence_exception
+		json_object["is_ordered_exception"] = self.__is_ordered_exception
+		json_object["get_structural_error_client_server_message_response_exception"] = self.__get_structural_error_client_server_message_response_exception
+		json_object["response_constructor_arguments"] = self.__response_constructor_arguments
+		return json_object
+
+	@staticmethod
+	def parse_from_json(*, json_object: Dict) -> ErrorRequestBaseClientServerMessage:
+		ClientServerMessage.remove_base_keys(
+			json_object=json_object
+		)
+		if len(json_object) != 10:
+			raise Exception(f"Unexpected properties sent to be parsed into {ErrorRequestBaseClientServerMessage.__name__}")
+		return ErrorRequestBaseClientServerMessage(
+			**json_object
+		)
+
+	def is_response(self) -> bool:
+
+		if self.__is_response_exception is not None:
+			raise Exception(self.__is_response_exception)
+
+		return False
+
+	def get_destination_uuid(self) -> str:
+
+		if self.__get_destination_uuid_exception is not None:
+			raise Exception(self.__get_destination_uuid_exception)
+
+		return None
+
+	def is_structural_influence(self) -> bool:
+
+		if self.__is_structural_influence_exception is not None:
+			raise Exception(self.__is_structural_influence_exception)
+
+		return True
+
+	def is_ordered(self) -> bool:
+
+		if self.__is_ordered_exception is not None:
+			raise Exception(self.__is_ordered_exception)
+
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+
+		if self.__get_structural_error_client_server_message_response_exception is not None:
+			raise Exception(self.__get_structural_error_client_server_message_response_exception)
+
+		return None
+
+
+class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
+
+	def __init__(self, *, client_uuid: str, is_constructor_exception_to_set: str = None, constructor_exception: str = None, get_client_server_message_type_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, get_destination_uuid_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None):
+		super().__init__()
+
+		self.__client_uuid = client_uuid
+		self.__is_constructor_exception_to_set = is_constructor_exception_to_set
+		self.__constructor_exception = constructor_exception
+		self.__get_client_server_message_type_exception = get_client_server_message_type_exception
+		self.__to_json_exception = to_json_exception
+		self.__is_response_exception = is_response_exception
+		self.__get_destination_uuid_exception = get_destination_uuid_exception
+		self.__is_structural_influence_exception = is_structural_influence_exception
+		self.__is_ordered_exception = is_ordered_exception
+		self.__get_structural_error_client_server_message_response_exception = get_structural_error_client_server_message_response_exception
+
+		if self.__constructor_exception is not None:
+			raise Exception(self.__constructor_exception)
+
+		if self.__is_constructor_exception_to_set is not None:
+			self.__constructor_exception = self.__is_constructor_exception_to_set
+			self.__is_constructor_exception_to_set = None
+
+	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+
+		if self.__get_client_server_message_type_exception is not None:
+			raise Exception(self.__get_client_server_message_type_exception)
+
+		return BaseClientServerMessageTypeEnum.ErrorResponse
+
+	def to_json(self) -> Dict:
+
+		if self.__to_json_exception is not None:
+			raise Exception(self.__to_json_exception)
+
+		json_object = super().to_json()
+		json_object["client_uuid"] = self.__client_uuid
+		json_object["is_constructor_exception_to_set"] = self.__is_constructor_exception_to_set
+		json_object["constructor_exception"] = self.__constructor_exception
+		json_object["get_client_server_message_type_exception"] = self.__get_client_server_message_type_exception
+		json_object["to_json_exception"] = self.__to_json_exception
+		json_object["is_response_exception"] = self.__is_response_exception
+		json_object["get_destination_uuid_exception"] = self.__get_destination_uuid_exception
+		json_object["is_structural_influence_exception"] = self.__is_structural_influence_exception
+		json_object["is_ordered_exception"] = self.__is_ordered_exception
+		json_object["get_structural_error_client_server_message_response_exception"] = self.__get_structural_error_client_server_message_response_exception
+		return json_object
+
+	@staticmethod
+	def parse_from_json(*, json_object: Dict) -> ErrorResponseBaseClientServerMessage:
+		ClientServerMessage.remove_base_keys(
+			json_object=json_object
+		)
+		if len(json_object) != 10:
+			raise Exception(f"Unexpected properties sent to be parsed into {ErrorResponseBaseClientServerMessage.__name__}")
+		return ErrorResponseBaseClientServerMessage(
+			**json_object
+		)
+
+	def is_response(self) -> bool:
+
+		if self.__is_response_exception is not None:
+			raise Exception(self.__is_response_exception)
+
+		return True
+
+	def get_destination_uuid(self) -> str:
+
+		if self.__get_destination_uuid_exception is not None:
+			raise Exception(self.__get_destination_uuid_exception)
+
+		return self.__client_uuid
+
+	def is_structural_influence(self) -> bool:
+
+		if self.__is_structural_influence_exception is not None:
+			raise Exception(self.__is_structural_influence_exception)
+
+		return False
+
+	def is_ordered(self) -> bool:
+
+		if self.__is_ordered_exception is not None:
+			raise Exception(self.__is_ordered_exception)
+
+		return True
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+
+		if self.__get_structural_error_client_server_message_response_exception is not None:
+			raise Exception(self.__get_structural_error_client_server_message_response_exception)
+
+		return None
+
+
+class PowerButtonBaseClientServerMessage(BaseClientServerMessage):
+
+	def __init__(self, *, is_anonymous: bool):
+		super().__init__()
+
+		self.__is_anonymous = is_anonymous  # if an overload should not be sent back to them due to this message
+
+	def is_anonymous(self) -> bool:
+		return self.__is_anonymous
+
+	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+		return BaseClientServerMessageTypeEnum.PowerButton
+
+	def to_json(self) -> Dict:
+		json_object = super().to_json()
+		return json_object
+
+	@staticmethod
+	def parse_from_json(*, json_object: Dict) -> PowerButtonBaseClientServerMessage:
+		ClientServerMessage.remove_base_keys(
+			json_object=json_object
+		)
+		if len(json_object) != 0:
+			raise Exception(f"Unexpected properties sent to be parsed into {PowerButtonBaseClientServerMessage.__name__}")
+		return PowerButtonBaseClientServerMessage()
+
+	def is_response(self) -> bool:
+		return False
+
+	def get_destination_uuid(self) -> str:
+		return None
+
+	def is_structural_influence(self) -> bool:
+		return True
+
+	def is_ordered(self) -> bool:
+		return False
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
+
+
+class PowerStructureStateEnum(StructureStateEnum):
+	ZeroPower = "zero_power"
+	OnePower = "one_power"
+	TwoPower = "two_power"
+	ThreePower = "three_power"
+
+
+class PowerStructure(Structure):
+
+	def __init__(self):
+		super().__init__(
+			states=PowerStructureStateEnum,
+			initial_state=PowerStructureStateEnum.ZeroPower
+		)
+
+		self.__power_total = 0
+
+		self.add_transition(
+			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
+			source=PowerStructureStateEnum.ZeroPower.value,
+			dest=PowerStructureStateEnum.OnePower.value,
+			before=f"_{PowerStructure.__name__}{PowerStructure.__power_button_pressed.__name__}"
+		)
+
+		self.add_transition(
+			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
+			source=PowerStructureStateEnum.OnePower.value,
+			dest=PowerStructureStateEnum.TwoPower.value,
+			before=f"_{PowerStructure.__name__}{PowerStructure.__power_button_pressed.__name__}"
+		)
+
+		self.add_transition(
+			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
+			source=PowerStructureStateEnum.TwoPower.value,
+			dest=PowerStructureStateEnum.ThreePower.value,
+			before=f"_{PowerStructure.__name__}{PowerStructure.__power_button_pressed.__name__}"
+		)
+
+	def __power_button_pressed(self, update_structure_influence: UpdateStructureInfluence):
+
+		self.__power_total += 1
+		if self.__power_total >= 3:
+			pass
+
+		raise NotImplementedError()
 
 
 class ButtonStructureStateEnum(StructureStateEnum):
@@ -726,6 +1026,13 @@ class ButtonStructure(Structure):
 			before=f"_{ButtonStructure.__name__}{ButtonStructure.__echo_requested.__name__}"
 		)
 
+		self.add_transition(
+			trigger=BaseClientServerMessageTypeEnum.ErrorRequest.value,
+			source=ButtonStructureStateEnum.ZeroPresses.value,
+			dest=ButtonStructureStateEnum.ZeroPresses.value,
+			before=f"_{ButtonStructure.__name__}{ButtonStructure.__error_requested.__name__}"
+		)
+
 	def __name_announced(self, update_structure_influence: UpdateStructureInfluence):
 		client_uuid = update_structure_influence.get_socket_kafka_message().get_source_uuid()
 		announce_base_client_server_message = update_structure_influence.get_socket_kafka_message().get_client_server_message()  # type: AnnounceBaseClientServerMessage
@@ -777,6 +1084,18 @@ class ButtonStructure(Structure):
 			client_server_message=EchoResponseBaseClientServerMessage(
 				message=message,
 				client_uuid=client_uuid
+			)
+		)
+
+	def __error_requested(self, update_structure_influence: UpdateStructureInfluence):
+		client_uuid = update_structure_influence.get_socket_kafka_message().get_source_uuid()
+		constructor_arguments = update_structure_influence.get_socket_kafka_message().get_client_server_message().get_response_constructor_arguments()
+		if constructor_arguments is None:
+			constructor_arguments = {}
+		constructor_arguments["client_uuid"] = client_uuid
+		update_structure_influence.add_response_client_server_message(
+			client_server_message=ErrorResponseBaseClientServerMessage(
+				**constructor_arguments
 			)
 		)
 
@@ -1259,6 +1578,8 @@ class MessengerTest(unittest.TestCase):
 				name="Third"
 			)
 		)
+
+		time.sleep(0.1)
 
 		print(f"{datetime.utcnow()}: sending first press")
 
@@ -1754,9 +2075,9 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		test_seconds = 10
-		test_messages_per_second = 200
+		test_messages_per_second = 500
 		expected_pings_total = test_seconds * test_messages_per_second
-		delay_between_sending_message_seconds = 1.0 / test_messages_per_second
+		delay_between_sending_message_seconds = (1.0 / test_messages_per_second) * 0.6
 		is_result_plotted = False
 
 		#expected_pings_total = 1000
@@ -1847,6 +2168,10 @@ class MessengerTest(unittest.TestCase):
 				seconds_total = (received_datetime - sent_datetime).total_seconds()
 				diff_seconds_totals.append(seconds_total)
 
+			print(f"Time to send {(sent_datetimes[-1] - sent_datetimes[0]).total_seconds()} seconds")
+			print(f"Messages per second to send: {expected_pings_total / (sent_datetimes[-1] - sent_datetimes[0]).total_seconds()}")
+			print(f"Time to receive {(received_datetimes[-1] - received_datetimes[0]).total_seconds()} seconds")
+			print(f"Messages per second to receive: {expected_pings_total / (received_datetimes[-1] - received_datetimes[0]).total_seconds()}")
 			print(f"Min diff seconds {min(diff_seconds_totals)} at {diff_seconds_totals.index(min(diff_seconds_totals))}")
 			print(f"Max diff seconds {max(diff_seconds_totals)} at {diff_seconds_totals.index(max(diff_seconds_totals))}")
 			print(f"Ave diff seconds {sum(diff_seconds_totals)/expected_pings_total}")
@@ -1860,6 +2185,518 @@ class MessengerTest(unittest.TestCase):
 			print(f"Min diff seconds {min(diff_seconds_totals[cutoff:])} at {diff_seconds_totals.index(min(diff_seconds_totals[cutoff:]))}")
 			print(f"Max diff seconds {max(diff_seconds_totals[cutoff:])} at {diff_seconds_totals.index(max(diff_seconds_totals[cutoff:]))}")
 			print(f"Ave diff seconds {sum(diff_seconds_totals[cutoff:]) / (expected_pings_total - cutoff)}")
+
+			print(f"{datetime.utcnow()}: disposing")
+
+			client_messenger.dispose()
+
+			print(f"{datetime.utcnow()}: disposed")
+
+		ping_thread = start_thread(ping_thread_method)
+		ping_thread.join()
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertIsNone(found_exception)
+
+	def test_single_client_quickly_echos_burst_0B(self):
+		# spam pings and detect timing differences between sends and receives
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		expected_pings_total = 1000
+		message_contents = ""
+
+		print(f"{datetime.utcnow()}: sending first press")
+
+		found_exception = None  # type: Exception
+
+		def ping_thread_method():
+			nonlocal expected_pings_total
+			nonlocal found_exception
+			nonlocal message_contents
+
+			client_messenger = get_default_client_messenger()
+
+			client_messenger.connect_to_server()
+
+			expected_ping_index = 0
+			received_first_message_datetime = None  # type: datetime
+			received_last_message_datetime = None  # type: datetime
+			callback_semaphore = Semaphore()
+
+			def callback(client_server_message: ClientServerMessage):
+				nonlocal expected_pings_total
+				nonlocal expected_ping_index
+				nonlocal received_first_message_datetime
+				nonlocal received_last_message_datetime
+				nonlocal callback_semaphore
+
+				# print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+				self.assertIsInstance(client_server_message, EchoResponseBaseClientServerMessage)
+
+				callback_semaphore.acquire()
+				expected_ping_index += 1
+				if expected_ping_index == 1:
+					received_first_message_datetime = datetime.utcnow()
+				if expected_ping_index == expected_pings_total:
+					received_last_message_datetime = datetime.utcnow()
+				callback_semaphore.release()
+
+			def on_exception(exception: Exception):
+				nonlocal found_exception
+				found_exception = exception
+
+			client_messenger.receive_from_server(
+				callback=callback,
+				on_exception=on_exception
+			)
+
+			print(f"{datetime.utcnow()}: sending first announcement")
+
+			client_messenger.send_to_server(
+				request_client_server_message=AnnounceBaseClientServerMessage(
+					name="First"
+				)
+			)
+
+			sent_first_ping_datetime = datetime.utcnow()
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=message_contents
+				)
+			)
+			for index in range(expected_pings_total - 2):
+				client_messenger.send_to_server(
+					request_client_server_message=EchoRequestBaseClientServerMessage(
+						message=message_contents
+					)
+				)
+			sent_last_ping_datetime = datetime.utcnow()
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=message_contents
+				)
+			)
+
+			print(f"{datetime.utcnow()}: waiting for messages")
+
+			while received_last_message_datetime is None:
+				time.sleep(1)
+			time.sleep(1)
+
+			print(f"Sent first message datetime: {sent_first_ping_datetime}")
+			print(f"Received first message datetime: {received_first_message_datetime}")
+			print(f"Diff: {(received_first_message_datetime - sent_first_ping_datetime).total_seconds()} seconds")
+			print(f"Sent last message datetime: {sent_last_ping_datetime}")
+			print(f"Received last message datetime: {received_last_message_datetime}")
+			print(f"Diff: {(received_last_message_datetime - sent_last_ping_datetime).total_seconds()} seconds")
+			seconds_total = (sent_last_ping_datetime - sent_first_ping_datetime).total_seconds()
+			messages_per_second = expected_pings_total / seconds_total
+			print(f"Seconds to send all messages: {seconds_total}")
+			print(f"Sent messages per seconds: {messages_per_second}")
+			print(f"Seconds per sent message: {1.0 / messages_per_second}")
+			seconds_total = (received_last_message_datetime - received_first_message_datetime).total_seconds()
+			messages_per_second = expected_pings_total / seconds_total
+			print(f"Seconds to receive all messages: {seconds_total}")
+			print(f"Received messages per seconds: {messages_per_second}")
+			print(f"Seconds per received message: {1.0 / messages_per_second}")
+
+			print(f"{datetime.utcnow()}: disposing")
+
+			client_messenger.dispose()
+
+			print(f"{datetime.utcnow()}: disposed")
+
+		ping_thread = start_thread(ping_thread_method)
+		ping_thread.join()
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertIsNone(found_exception)
+
+	def test_single_client_quickly_echos_burst_1KB(self):
+		# spam pings and detect timing differences between sends and receives
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		expected_pings_total = 1000
+		message_contents = "12345678" * 128
+
+		print(f"{datetime.utcnow()}: sending first press")
+
+		found_exception = None  # type: Exception
+
+		def ping_thread_method():
+			nonlocal expected_pings_total
+			nonlocal found_exception
+			nonlocal message_contents
+
+			client_messenger = get_default_client_messenger()
+
+			client_messenger.connect_to_server()
+
+			expected_ping_index = 0
+			received_first_message_datetime = None  # type: datetime
+			received_last_message_datetime = None  # type: datetime
+			callback_semaphore = Semaphore()
+
+			def callback(client_server_message: ClientServerMessage):
+				nonlocal expected_pings_total
+				nonlocal expected_ping_index
+				nonlocal received_first_message_datetime
+				nonlocal received_last_message_datetime
+				nonlocal callback_semaphore
+
+				# print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+				self.assertIsInstance(client_server_message, EchoResponseBaseClientServerMessage)
+
+				callback_semaphore.acquire()
+				expected_ping_index += 1
+				if expected_ping_index == 1:
+					received_first_message_datetime = datetime.utcnow()
+				if expected_ping_index == expected_pings_total:
+					received_last_message_datetime = datetime.utcnow()
+				callback_semaphore.release()
+
+			def on_exception(exception: Exception):
+				nonlocal found_exception
+				found_exception = exception
+
+			client_messenger.receive_from_server(
+				callback=callback,
+				on_exception=on_exception
+			)
+
+			print(f"{datetime.utcnow()}: sending first announcement")
+
+			client_messenger.send_to_server(
+				request_client_server_message=AnnounceBaseClientServerMessage(
+					name="First"
+				)
+			)
+
+			sent_first_ping_datetime = datetime.utcnow()
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=message_contents
+				)
+			)
+			for index in range(expected_pings_total - 2):
+				client_messenger.send_to_server(
+					request_client_server_message=EchoRequestBaseClientServerMessage(
+						message=message_contents
+					)
+				)
+			sent_last_ping_datetime = datetime.utcnow()
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=message_contents
+				)
+			)
+
+			print(f"{datetime.utcnow()}: waiting for messages")
+
+			while received_last_message_datetime is None:
+				time.sleep(1)
+			time.sleep(1)
+
+			print(f"Sent first message datetime: {sent_first_ping_datetime}")
+			print(f"Received first message datetime: {received_first_message_datetime}")
+			print(f"Diff: {(received_first_message_datetime - sent_first_ping_datetime).total_seconds()} seconds")
+			print(f"Sent last message datetime: {sent_last_ping_datetime}")
+			print(f"Received last message datetime: {received_last_message_datetime}")
+			print(f"Diff: {(received_last_message_datetime - sent_last_ping_datetime).total_seconds()} seconds")
+			seconds_total = (sent_last_ping_datetime - sent_first_ping_datetime).total_seconds()
+			messages_per_second = expected_pings_total / seconds_total
+			print(f"Seconds to send all messages: {seconds_total}")
+			print(f"Sent messages per seconds: {messages_per_second}")
+			print(f"Seconds per sent message: {1.0 / messages_per_second}")
+			seconds_total = (received_last_message_datetime - received_first_message_datetime).total_seconds()
+			messages_per_second = expected_pings_total / seconds_total
+			print(f"Seconds to receive all messages: {seconds_total}")
+			print(f"Received messages per seconds: {messages_per_second}")
+			print(f"Seconds per received message: {1.0 / messages_per_second}")
+
+			print(f"{datetime.utcnow()}: disposing")
+
+			client_messenger.dispose()
+
+			print(f"{datetime.utcnow()}: disposed")
+
+		ping_thread = start_thread(ping_thread_method)
+		ping_thread.join()
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertIsNone(found_exception)
+
+	def test_single_client_quickly_echos_burst_5KB(self):
+		# spam pings and detect timing differences between sends and receives
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		expected_pings_total = 1000
+		message_contents = "12345678" * 128 * 5
+
+		print(f"{datetime.utcnow()}: sending first press")
+
+		found_exception = None  # type: Exception
+
+		def ping_thread_method():
+			nonlocal expected_pings_total
+			nonlocal found_exception
+			nonlocal message_contents
+
+			client_messenger = get_default_client_messenger()
+
+			client_messenger.connect_to_server()
+
+			expected_ping_index = 0
+			received_first_message_datetime = None  # type: datetime
+			received_last_message_datetime = None  # type: datetime
+			callback_semaphore = Semaphore()
+
+			def callback(client_server_message: ClientServerMessage):
+				nonlocal expected_pings_total
+				nonlocal expected_ping_index
+				nonlocal received_first_message_datetime
+				nonlocal received_last_message_datetime
+				nonlocal callback_semaphore
+
+				# print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+				self.assertIsInstance(client_server_message, EchoResponseBaseClientServerMessage)
+
+				callback_semaphore.acquire()
+				expected_ping_index += 1
+				if expected_ping_index == 1:
+					received_first_message_datetime = datetime.utcnow()
+				if expected_ping_index == expected_pings_total:
+					received_last_message_datetime = datetime.utcnow()
+				callback_semaphore.release()
+
+			def on_exception(exception: Exception):
+				nonlocal found_exception
+				found_exception = exception
+
+			client_messenger.receive_from_server(
+				callback=callback,
+				on_exception=on_exception
+			)
+
+			print(f"{datetime.utcnow()}: sending first announcement")
+
+			client_messenger.send_to_server(
+				request_client_server_message=AnnounceBaseClientServerMessage(
+					name="First"
+				)
+			)
+
+			sent_first_ping_datetime = datetime.utcnow()
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=message_contents
+				)
+			)
+			for index in range(expected_pings_total - 2):
+				client_messenger.send_to_server(
+					request_client_server_message=EchoRequestBaseClientServerMessage(
+						message=message_contents
+					)
+				)
+			sent_last_ping_datetime = datetime.utcnow()
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=message_contents
+				)
+			)
+
+			print(f"{datetime.utcnow()}: waiting for messages")
+
+			while received_last_message_datetime is None:
+				time.sleep(1)
+			time.sleep(1)
+
+			print(f"Sent first message datetime: {sent_first_ping_datetime}")
+			print(f"Received first message datetime: {received_first_message_datetime}")
+			print(f"Diff: {(received_first_message_datetime - sent_first_ping_datetime).total_seconds()} seconds")
+			print(f"Sent last message datetime: {sent_last_ping_datetime}")
+			print(f"Received last message datetime: {received_last_message_datetime}")
+			print(f"Diff: {(received_last_message_datetime - sent_last_ping_datetime).total_seconds()} seconds")
+			seconds_total = (sent_last_ping_datetime - sent_first_ping_datetime).total_seconds()
+			messages_per_second = expected_pings_total / seconds_total
+			print(f"Seconds to send all messages: {seconds_total}")
+			print(f"Sent messages per seconds: {messages_per_second}")
+			print(f"Seconds per sent message: {1.0 / messages_per_second}")
+			seconds_total = (received_last_message_datetime - received_first_message_datetime).total_seconds()
+			messages_per_second = expected_pings_total / seconds_total
+			print(f"Seconds to receive all messages: {seconds_total}")
+			print(f"Received messages per seconds: {messages_per_second}")
+			print(f"Seconds per received message: {1.0 / messages_per_second}")
+
+			print(f"{datetime.utcnow()}: disposing")
+
+			client_messenger.dispose()
+
+			print(f"{datetime.utcnow()}: disposed")
+
+		ping_thread = start_thread(ping_thread_method)
+		ping_thread.join()
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertIsNone(found_exception)
+
+	def test_single_client_quickly_echos_burst_10KB(self):
+		# spam pings and detect timing differences between sends and receives
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		expected_pings_total = 1000
+		message_contents = "12345678" * 128 * 10
+
+		print(f"{datetime.utcnow()}: sending first press")
+
+		found_exception = None  # type: Exception
+
+		def ping_thread_method():
+			nonlocal expected_pings_total
+			nonlocal found_exception
+			nonlocal message_contents
+
+			client_messenger = get_default_client_messenger()
+
+			client_messenger.connect_to_server()
+
+			expected_ping_index = 0
+			received_first_message_datetime = None  # type: datetime
+			received_last_message_datetime = None  # type: datetime
+			callback_semaphore = Semaphore()
+
+			def callback(client_server_message: ClientServerMessage):
+				nonlocal expected_pings_total
+				nonlocal expected_ping_index
+				nonlocal received_first_message_datetime
+				nonlocal received_last_message_datetime
+				nonlocal callback_semaphore
+
+				# print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+				self.assertIsInstance(client_server_message, EchoResponseBaseClientServerMessage)
+
+				callback_semaphore.acquire()
+				expected_ping_index += 1
+				if expected_ping_index == 1:
+					received_first_message_datetime = datetime.utcnow()
+				if expected_ping_index == expected_pings_total:
+					received_last_message_datetime = datetime.utcnow()
+				callback_semaphore.release()
+
+			def on_exception(exception: Exception):
+				nonlocal found_exception
+				found_exception = exception
+
+			client_messenger.receive_from_server(
+				callback=callback,
+				on_exception=on_exception
+			)
+
+			print(f"{datetime.utcnow()}: sending first announcement")
+
+			client_messenger.send_to_server(
+				request_client_server_message=AnnounceBaseClientServerMessage(
+					name="First"
+				)
+			)
+
+			sent_first_ping_datetime = datetime.utcnow()
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=message_contents
+				)
+			)
+			for index in range(expected_pings_total - 2):
+				client_messenger.send_to_server(
+					request_client_server_message=EchoRequestBaseClientServerMessage(
+						message=message_contents
+					)
+				)
+			sent_last_ping_datetime = datetime.utcnow()
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=message_contents
+				)
+			)
+
+			print(f"{datetime.utcnow()}: waiting for messages")
+
+			while received_last_message_datetime is None:
+				time.sleep(1)
+			time.sleep(1)
+
+			print(f"Sent first message datetime: {sent_first_ping_datetime}")
+			print(f"Received first message datetime: {received_first_message_datetime}")
+			print(f"Diff: {(received_first_message_datetime - sent_first_ping_datetime).total_seconds()} seconds")
+			print(f"Sent last message datetime: {sent_last_ping_datetime}")
+			print(f"Received last message datetime: {received_last_message_datetime}")
+			print(f"Diff: {(received_last_message_datetime - sent_last_ping_datetime).total_seconds()} seconds")
+			seconds_total = (sent_last_ping_datetime - sent_first_ping_datetime).total_seconds()
+			messages_per_second = expected_pings_total / seconds_total
+			print(f"Seconds to send all messages: {seconds_total}")
+			print(f"Sent messages per seconds: {messages_per_second}")
+			print(f"Seconds per sent message: {1.0 / messages_per_second}")
+			seconds_total = (received_last_message_datetime - received_first_message_datetime).total_seconds()
+			messages_per_second = expected_pings_total / seconds_total
+			print(f"Seconds to receive all messages: {seconds_total}")
+			print(f"Received messages per seconds: {messages_per_second}")
+			print(f"Seconds per received message: {1.0 / messages_per_second}")
 
 			print(f"{datetime.utcnow()}: disposing")
 
@@ -2068,11 +2905,17 @@ class MessengerTest(unittest.TestCase):
 			if found_exception is None:
 				found_exception = exception
 
+		# TODO determine why the first thread to spawn as a part of the connect_to_server process does not die
 		client_messenger.connect_to_server()
+
+		time.sleep(1)
+
 		client_messenger.receive_from_server(
 			callback=callback,
 			on_exception=on_exception
 		)
+		
+		time.sleep(1)
 
 		for message_index in range(messages_total):
 			client_messenger.send_to_server(
@@ -2085,15 +2928,25 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(5)
 
+		print(f"{datetime.utcnow()}: disposing client messenger: start")
+
 		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposing client messenger: end")
 
 		time.sleep(1)
 
+		print(f"{datetime.utcnow()}: server_messenger.stop_receiving_from_clients(): start")
+
 		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: server_messenger.stop_receiving_from_clients(): end")
 
 		if found_exception is not None:
 			raise found_exception
 		self.assertIsNone(failed_at_message_index)
+
+		print(f"end")
 
 	def test_two_clients_becoming_out_of_sync(self):
 		# as the delay between two different clients send messages shrinks, how often are the messages received in the wrong order
@@ -2198,6 +3051,7 @@ class MessengerTest(unittest.TestCase):
 
 	def test_dispose_client_too_quickly_before_receiving_all_messages(self):
 		# a thread seems to remain alive when this happens
+		# NOTE: the client_socket read only gets to 988 before it stops reading
 
 		messages_total = 1000
 
@@ -2263,12 +3117,688 @@ class MessengerTest(unittest.TestCase):
 			raise found_exception
 		self.assertIsNone(failed_at_message_index)
 
-		raise NotImplementedError()
+	def test_parse_client_server_message_raises_exception_when_receiving_in_server_messenger(self):
 
-	def test_parse_client_server_message_raises_exception_when_receiving_in_client_messenger(self):
+		server_messenger = get_default_server_messenger()
 
-		pass
+		server_messenger.start_receiving_from_clients()
 
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			callback_total += 1
+			self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		client_messenger.send_to_server(
+			request_client_server_message=ErrorRequestBaseClientServerMessage(
+				is_constructor_exception_to_set=expected_exception
+			)
+		)
+
+		print(f"{datetime.utcnow()}: wait for messages")
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		with self.assertRaises(Exception) as assertedException:
+			server_messenger.stop_receiving_from_clients()
+
+		self.assertEqual(expected_exception, str(assertedException.exception))
+
+		# the server encountered an exception, closing the connection
+		self.assertIsInstance(found_exception, ReadWriteSocketClosedException)
+
+	def test_determining_client_server_message_type_raises_exception_when_sending_to_server_messenger(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			callback_total += 1
+			self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		with self.assertRaises(Exception) as assertedException:
+			client_messenger.send_to_server(
+				request_client_server_message=ErrorRequestBaseClientServerMessage(
+					get_client_server_message_type_exception=expected_exception
+				)
+			)
+
+		self.assertEqual(expected_exception, str(assertedException.exception))
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		if found_exception is not None:
+			raise found_exception
+
+	def test_getting_json_of_client_server_message_raises_exception_when_sending_to_server_messenger(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			callback_total += 1
+			self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		with self.assertRaises(Exception) as assertedException:
+			client_messenger.send_to_server(
+				request_client_server_message=ErrorRequestBaseClientServerMessage(
+					to_json_exception=expected_exception
+				)
+			)
+
+		self.assertEqual(expected_exception, str(assertedException.exception))
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		if found_exception is not None:
+			raise found_exception
+
+	def test_check_if_is_response_client_server_message_raises_exception_when_processing_in_server_messenger(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			callback_total += 1
+			self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		client_messenger.send_to_server(
+			request_client_server_message=ErrorRequestBaseClientServerMessage(
+				is_response_exception=expected_exception
+			)
+		)
+
+		time.sleep(1)
+
+		client_messenger.send_to_server(
+			request_client_server_message=PingRequestBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		with self.assertRaises(Exception) as assertedException:
+			server_messenger.stop_receiving_from_clients()
+
+		self.assertEqual(expected_exception, str(assertedException.exception))
+
+		# the server encountered an exception but did not close the connect due to it and is still receiving requests
+		if found_exception is not None:
+			raise found_exception
+
+	def test_getting_destination_uuid_from_client_server_message_raises_exception_when_processing_in_server_messenger(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			if callback_total == 0:
+				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+			else:
+				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		client_messenger.send_to_server(
+			request_client_server_message=ErrorRequestBaseClientServerMessage(
+				get_destination_uuid_exception=expected_exception
+			)
+		)
+
+		time.sleep(1)
+
+		client_messenger.send_to_server(
+			request_client_server_message=PingRequestBaseClientServerMessage()
+		)
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		# the server encountered an exception but did not close the connect due to it and is still receiving requests
+		if found_exception is not None:
+			raise found_exception
+
+	def test_checking_if_is_structural_influence_from_client_server_message_raises_exception_when_processing_in_server_messenger(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			if callback_total == 0:
+				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+			else:
+				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		client_messenger.send_to_server(
+			request_client_server_message=ErrorRequestBaseClientServerMessage(
+				is_structural_influence_exception=expected_exception
+			)
+		)
+
+		time.sleep(1)
+
+		client_messenger.send_to_server(
+			request_client_server_message=PingRequestBaseClientServerMessage()
+		)
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		with self.assertRaises(Exception) as assertedException:
+			server_messenger.stop_receiving_from_clients()
+
+		self.assertEqual(expected_exception, str(assertedException.exception))
+
+		# the server encountered an exception but did not close the connect due to it and is still receiving requests
+		if found_exception is not None:
+			raise found_exception
+
+	def test_checking_if_is_ordered_from_client_server_message_raises_exception_when_processing_in_server_messenger_with_ping_exception(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			if callback_total == 0:
+				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+			else:
+				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		client_messenger.send_to_server(
+			request_client_server_message=ErrorRequestBaseClientServerMessage(
+				is_ordered_exception=expected_exception
+			)
+		)
+
+		time.sleep(1)
+
+		with self.assertRaises(ReadWriteSocketClosedException):
+			client_messenger.send_to_server(
+				request_client_server_message=PingRequestBaseClientServerMessage()
+			)
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		with self.assertRaises(Exception) as assertedException:
+			server_messenger.stop_receiving_from_clients()
+
+		self.assertEqual(expected_exception, str(assertedException.exception))
+
+		# the client messenger encountered an exception within the read loop after the server messenger encountered an exception and closed the connection
+		self.assertIsInstance(found_exception, ReadWriteSocketClosedException)
+
+	def test_checking_if_is_ordered_from_client_server_message_raises_exception_when_processing_in_server_messenger(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			if callback_total == 0:
+				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+			else:
+				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		client_messenger.send_to_server(
+			request_client_server_message=ErrorRequestBaseClientServerMessage(
+				is_ordered_exception=expected_exception
+			)
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		with self.assertRaises(Exception) as assertedException:
+			server_messenger.stop_receiving_from_clients()
+
+		self.assertEqual(expected_exception, str(assertedException.exception))
+
+		# the client messenger encountered an exception within the read loop after the server messenger encountered an exception and closed the connection
+		self.assertIsInstance(found_exception, ReadWriteSocketClosedException)
+
+	def test_getting_structural_error_client_server_message_response_from_client_server_message_raises_exception_when_processing_in_server_messenger_but_succeeds(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			if callback_total == 0:
+				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+			else:
+				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		client_messenger.send_to_server(
+			request_client_server_message=ErrorRequestBaseClientServerMessage(
+				get_structural_error_client_server_message_response_exception=expected_exception
+			)
+		)
+
+		time.sleep(1)
+
+		client_messenger.send_to_server(
+			request_client_server_message=PingRequestBaseClientServerMessage()
+		)
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		# the server encountered an exception but did not close the connect due to it and is still receiving requests
+		if found_exception is not None:
+			raise found_exception
+
+	def test_getting_structural_error_client_server_message_response_from_client_server_message_raises_exception_when_processing_in_server_messenger_and_causes_exception(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			if callback_total == 0:
+				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+			else:
+				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		time.sleep(1)
+
+		client_messenger.send_to_server(
+			request_client_server_message=ErrorRequestBaseClientServerMessage(
+				get_structural_error_client_server_message_response_exception=expected_exception
+			)
+		)
+
+		time.sleep(1)
+
+		client_messenger.send_to_server(
+			request_client_server_message=PingRequestBaseClientServerMessage()
+		)
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		with self.assertRaises(Exception) as assertedException:
+			server_messenger.stop_receiving_from_clients()
+
+		self.assertEqual(expected_exception, str(assertedException.exception))
+
+		# the server encountered an exception but did not close the connect due to it and is still receiving requests
+		if found_exception is not None:
+			raise found_exception
+
+	def test_getting_structural_error_client_server_message_response_from_client_server_message_raises_exception_when_processing_in_server_messenger_and_causes_exception(self):
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
+			if callback_total == 0:
+				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
+			else:
+				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending error messages")
+
+		expected_exception = f"test exception: {uuid.uuid4()}"
+
+		client_messenger.send_to_server(
+			request_client_server_message=ErrorRequestBaseClientServerMessage(
+				response_constructor_arguments={
+					"is_constructor_exception_to_set": expected_exception
+				}
+			)
+		)
+
+		time.sleep(1)
+
+		client_messenger.send_to_server(
+			request_client_server_message=PingRequestBaseClientServerMessage()
+		)
+
+		time.sleep(5)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		with self.assertRaises(Exception) as assertedException:
+			server_messenger.stop_receiving_from_clients()
+
+		self.assertEqual(expected_exception, str(assertedException.exception))
+
+		# the server encountered an exception but did not close the connect due to it and is still receiving requests
+		if found_exception is not None:
+			raise found_exception
 
 	def test_unordered_client_server_messages(self):
 

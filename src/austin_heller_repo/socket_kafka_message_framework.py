@@ -2,7 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from austin_heller_repo.common import StringEnum, HostPointer
 from austin_heller_repo.socket import ClientSocketFactory, ClientSocket, ServerSocketFactory, ServerSocket, ReadWriteSocketClosedException
-from austin_heller_repo.threading import AsyncHandle, Semaphore, ReadOnlyAsyncHandle, PreparedSemaphoreRequest, SemaphoreRequestQueue, SemaphoreRequest, start_thread, ThreadCycle, ThreadCycleCache, CyclingUnitOfWork, SequentialQueue, SequentialQueueReader, SequentialQueueWriter, SequentialQueueFactory
+from austin_heller_repo.threading import AsyncHandle, Semaphore, ReadOnlyAsyncHandle, PreparedSemaphoreRequest, SemaphoreRequestQueue, SemaphoreRequest, start_thread, ThreadCycle, ThreadCycleCache, CyclingUnitOfWork, SequentialQueue, SequentialQueueReader, SequentialQueueWriter, SequentialQueueFactory, ConstantAsyncHandle
 from typing import List, Tuple, Dict, Type, Callable
 import json
 from datetime import datetime
@@ -102,8 +102,7 @@ class ClientMessenger():
 					client_server_message_json_string = self.__client_socket.read()
 
 					if self.__is_debug:
-						print(
-							f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read end: {client_server_message_json_string}")
+						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read end: {client_server_message_json_string}")
 
 					if not self.__is_closing:
 
@@ -138,6 +137,8 @@ class ClientMessenger():
 	def receive_from_server(self, *, callback: Callable[[ClientServerMessage], None], on_exception: Callable[[Exception], None]):
 		if self.__receive_from_server_callback is not None:
 			raise Exception(f"Already receiving from server.")
+		elif self.__client_socket is None:
+			raise Exception(f"Must connect to the server before starting to receive.")
 		else:
 			async_handle = AsyncHandle(
 				get_result_method=self.__receive_from_server,
@@ -154,11 +155,10 @@ class ClientMessenger():
 		if self.__is_debug:
 			print(f"{datetime.utcnow()}: ClientMessenger: dispose: start")
 
+		self.__is_closing = True
+
 		if self.__receive_from_server_async_handle is not None:
 			self.__receive_from_server_async_handle.cancel()
-			del self.__receive_from_server_async_handle
-
-		self.__is_closing = True
 
 		if self.__client_socket is not None:
 
@@ -170,7 +170,8 @@ class ClientMessenger():
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ClientMessenger: dispose: closed client socket")
 
-			del self.__client_socket
+		if self.__receive_from_server_async_handle is not None:
+			self.__receive_from_server_async_handle.get_result()
 
 		if self.__is_debug:
 			print(f"{datetime.utcnow()}: ClientMessenger: dispose: end")
@@ -355,9 +356,6 @@ class ServerMessenger():
 					if destination_uuid in self.__client_sockets_per_source_uuid:
 						self.__client_sockets_per_source_uuid[destination_uuid].write(json.dumps(socket_kafka_message.get_client_server_message().to_json()))
 						is_message_sent_to_source = True
-				except BrokenPipeError as ex:
-					self.__client_sockets_per_source_uuid[destination_uuid].close()
-					del self.__client_sockets_per_source_uuid[destination_uuid]
 				except ReadWriteSocketClosedException as ex:
 					self.__client_sockets_per_source_uuid[destination_uuid].close()
 					del self.__client_sockets_per_source_uuid[destination_uuid]
@@ -561,15 +559,11 @@ class ServerMessenger():
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: writing message: {socket_kafka_message.to_json()}")
 
-			async_handle = AsyncHandle(
-				get_result_method=self.__process_socket_kafka_message,
+			self.__process_socket_kafka_message(
+				read_only_async_handle=read_only_async_handle,
 				socket_kafka_message=socket_kafka_message,
 				is_from_queue=False
 			)
-			async_handle.add_parent(
-				async_handle=read_only_async_handle
-			)
-			async_handle.get_result()
 
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: wrote message: {socket_kafka_message.to_json()}")
@@ -591,41 +585,40 @@ class ServerMessenger():
 				if self.__is_debug:
 					print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: reading from client socket")
 
-				client_server_message_json_string = client_socket.read()
+				try:
+					client_server_message_json_string = client_socket.read()
+				except ReadWriteSocketClosedException as ex:
+					break
 
 				if self.__is_debug:
 					print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: read from client socket: {client_server_message_json_string}")
 
-				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: starting async handle")
-
 				if self.__on_accepted_client_method_exception is None:
 
-					process_read_async_handle = AsyncHandle(
-						get_result_method=self.__process_read_message_from_client_socket,
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: starting __process_read_message_from_client_socket")
+
+					self.__process_read_async_handle_per_source_uuid_semaphore.acquire()
+					constant_async_handle = ConstantAsyncHandle(
+						result=None
+					)
+					self.__process_read_async_handle_per_source_uuid[source_uuid] = constant_async_handle
+					self.__process_read_async_handle_per_source_uuid_semaphore.release()
+
+					self.__process_read_message_from_client_socket(
+						read_only_async_handle=constant_async_handle,
 						source_uuid=source_uuid,
 						message=client_server_message_json_string
 					)
-					process_read_async_handle.try_wait(
-						timeout_seconds=0
-					)
 
 					self.__process_read_async_handle_per_source_uuid_semaphore.acquire()
-					self.__process_read_async_handle_per_source_uuid[source_uuid] = process_read_async_handle
-					self.__process_read_async_handle_per_source_uuid_semaphore.release()
-
-					process_read_async_handle.get_result()
-
-					self.__process_read_async_handle_per_source_uuid_semaphore.acquire()
-					del self.__process_read_async_handle_per_source_uuid[source_uuid]
+					if source_uuid in self.__process_read_async_handle_per_source_uuid:
+						del self.__process_read_async_handle_per_source_uuid[source_uuid]
 					self.__process_read_async_handle_per_source_uuid_semaphore.release()
 
 					if self.__is_debug:
-						print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: started async handle")
-		except ReadWriteSocketClosedException as ex:
-			pass
-		except BrokenPipeError as ex:
-			pass
+						print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: ended __process_read_message_from_client_socket")
+
 		except Exception as ex:
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: ex: {ex}")
