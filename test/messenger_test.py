@@ -1,6 +1,6 @@
 from __future__ import annotations
 import unittest
-from src.austin_heller_repo.socket_kafka_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, UpdateStructureInfluence, StructureFactory
+from src.austin_heller_repo.socket_kafka_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, StructureFactory
 from austin_heller_repo.socket import ClientSocketFactory, ServerSocketFactory, ReadWriteSocketClosedException
 from austin_heller_repo.common import HostPointer
 from austin_heller_repo.kafka_manager import KafkaSequentialQueueFactory, KafkaManager, KafkaWrapper, KafkaManagerFactory
@@ -448,6 +448,7 @@ class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		json_object["client_uuid"] = self.__client_uuid
+		json_object["power"] = self.__power
 		return json_object
 
 	@staticmethod
@@ -455,7 +456,7 @@ class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 		ClientServerMessage.remove_base_keys(
 			json_object=json_object
 		)
-		if len(json_object) != 1:
+		if len(json_object) != 2:
 			raise Exception(f"Unexpected properties sent to be parsed into {ThreePressesTransmissionBaseClientServerMessage.__name__}")
 		return ThreePressesTransmissionBaseClientServerMessage(
 			**json_object
@@ -578,6 +579,7 @@ class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		json_object["message"] = self.__message
+		json_object["is_ordered"] = self.__is_ordered
 		return json_object
 
 	@staticmethod
@@ -927,7 +929,10 @@ class PowerStructure(Structure):
 			before=f"_{PowerStructure.__name__}{PowerStructure.__power_button_pressed.__name__}"
 		)
 
-	def __power_button_pressed(self, update_structure_influence: UpdateStructureInfluence):
+	def get_power(self) -> int:
+		return self.__power_total
+
+	def __power_button_pressed(self, power_button: PowerButtonBaseClientServerMessage, source_uuid: str):
 
 		self.__power_total += 1
 		if self.__power_total >= 3:
@@ -955,6 +960,8 @@ class ButtonStructure(Structure):
 		self.__name_per_client_uuid = {}  # type: Dict[str, str]
 		self.__presses_total = 0
 		self.__pings_total = 0
+
+		self.__power_structure = PowerStructure()
 
 		self.add_transition(
 			trigger=BaseClientServerMessageTypeEnum.Announce.value,
@@ -1033,67 +1040,62 @@ class ButtonStructure(Structure):
 			before=f"_{ButtonStructure.__name__}{ButtonStructure.__error_requested.__name__}"
 		)
 
-	def __name_announced(self, update_structure_influence: UpdateStructureInfluence):
-		client_uuid = update_structure_influence.get_socket_kafka_message().get_source_uuid()
-		announce_base_client_server_message = update_structure_influence.get_socket_kafka_message().get_client_server_message()  # type: AnnounceBaseClientServerMessage
-		self.__name_per_client_uuid[client_uuid] = announce_base_client_server_message.get_name()
+	def __name_announced(self, announce: AnnounceBaseClientServerMessage, source_uuid: str):
+		self.__name_per_client_uuid[source_uuid] = announce.get_name()
 
-	def __button_pressed(self, update_structure_influence: UpdateStructureInfluence):
-		client_uuid = update_structure_influence.get_socket_kafka_message().get_source_uuid()
-		if client_uuid not in self.__pressed_button_client_uuids:
-			self.__pressed_button_client_uuids.append(client_uuid)
-		if client_uuid in self.__name_per_client_uuid.keys():
-			print(f"button pressed by {self.__name_per_client_uuid[client_uuid]}")
+	def __button_pressed(self, press_button: PressButtonBaseClientServerMessage, source_uuid: str):
+		if source_uuid not in self.__pressed_button_client_uuids:
+			self.__pressed_button_client_uuids.append(source_uuid)
+		if source_uuid in self.__name_per_client_uuid:
+			print(f"button pressed by {self.__name_per_client_uuid[source_uuid]}")
 		else:
-			print(f"button pressed by {client_uuid}")
+			print(f"button pressed by {source_uuid}")
 		self.__presses_total += 1
 		if self.__presses_total == 3:
-			update_structure_influence.add_response_client_server_message(
+			self.process_response(
 				client_server_message=ThreePressesTransmissionBaseClientServerMessage(
-					client_uuid=client_uuid
+					client_uuid=source_uuid,
+					power=self.__power_structure.get_power()
 				)
 			)
 
-	def __button_reset(self, update_structure_influence: UpdateStructureInfluence):
+	def __button_reset(self, reset_button: ResetButtonBaseClientServerMessage, source_uuid: str):
 		for client_uuid in self.__pressed_button_client_uuids:
 			client_server_message = ResetTransmissionBaseClientServerMessage(
 				client_uuid=client_uuid
 			)
-			update_structure_influence.add_response_client_server_message(
+			self.process_response(
 				client_server_message=client_server_message
 			)
 		self.__pressed_button_client_uuids.clear()
 
-	def __three_presses_transmission_sent(self, update_structure_influence: UpdateStructureInfluence):
+	def __three_presses_transmission_sent(self, three_presses_transmission: ThreePressesTransmissionBaseClientServerMessage, source_uuid: str):
 		self.__pressed_button_client_uuids.clear()
 
-	def __ping_requested(self, update_structure_influence: UpdateStructureInfluence):
-		client_uuid = update_structure_influence.get_socket_kafka_message().get_source_uuid()
-		update_structure_influence.add_response_client_server_message(
+	def __ping_requested(self, ping_request: PingRequestBaseClientServerMessage, source_uuid: str):
+		self.process_response(
 			client_server_message=PingResponseBaseClientServerMessage(
-				client_uuid=client_uuid,
+				client_uuid=source_uuid,
 				ping_index=self.__pings_total
 			)
 		)
 		self.__pings_total += 1
 
-	def __echo_requested(self, update_structure_influence: UpdateStructureInfluence):
-		client_uuid = update_structure_influence.get_socket_kafka_message().get_source_uuid()
-		message = update_structure_influence.get_socket_kafka_message().get_client_server_message().get_message()
-		update_structure_influence.add_response_client_server_message(
+	def __echo_requested(self, echo_request: EchoRequestBaseClientServerMessage, source_uuid: str):
+		message = echo_request.get_message()
+		self.process_response(
 			client_server_message=EchoResponseBaseClientServerMessage(
 				message=message,
-				client_uuid=client_uuid
+				client_uuid=source_uuid
 			)
 		)
 
-	def __error_requested(self, update_structure_influence: UpdateStructureInfluence):
-		client_uuid = update_structure_influence.get_socket_kafka_message().get_source_uuid()
-		constructor_arguments = update_structure_influence.get_socket_kafka_message().get_client_server_message().get_response_constructor_arguments()
+	def __error_requested(self, error_request: ErrorRequestBaseClientServerMessage, source_uuid: str):
+		constructor_arguments = error_request.get_response_constructor_arguments()
 		if constructor_arguments is None:
 			constructor_arguments = {}
-		constructor_arguments["client_uuid"] = client_uuid
-		update_structure_influence.add_response_client_server_message(
+		constructor_arguments["client_uuid"] = source_uuid
+		self.process_response(
 			client_server_message=ErrorResponseBaseClientServerMessage(
 				**constructor_arguments
 			)
@@ -2275,19 +2277,22 @@ class MessengerTest(unittest.TestCase):
 			sent_first_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=message_contents
+					message=message_contents,
+					is_ordered=True
 				)
 			)
 			for index in range(expected_pings_total - 2):
 				client_messenger.send_to_server(
 					request_client_server_message=EchoRequestBaseClientServerMessage(
-						message=message_contents
+						message=message_contents,
+						is_ordered=True
 					)
 				)
 			sent_last_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=message_contents
+					message=message_contents,
+					is_ordered=True
 				)
 			)
 
@@ -2403,19 +2408,22 @@ class MessengerTest(unittest.TestCase):
 			sent_first_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=message_contents
+					message=message_contents,
+					is_ordered=True
 				)
 			)
 			for index in range(expected_pings_total - 2):
 				client_messenger.send_to_server(
 					request_client_server_message=EchoRequestBaseClientServerMessage(
-						message=message_contents
+						message=message_contents,
+						is_ordered=True
 					)
 				)
 			sent_last_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=message_contents
+					message=message_contents,
+					is_ordered=True
 				)
 			)
 
@@ -2531,19 +2539,22 @@ class MessengerTest(unittest.TestCase):
 			sent_first_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=message_contents
+					message=message_contents,
+					is_ordered=True
 				)
 			)
 			for index in range(expected_pings_total - 2):
 				client_messenger.send_to_server(
 					request_client_server_message=EchoRequestBaseClientServerMessage(
-						message=message_contents
+						message=message_contents,
+						is_ordered=True
 					)
 				)
 			sent_last_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=message_contents
+					message=message_contents,
+					is_ordered=True
 				)
 			)
 
@@ -2659,19 +2670,22 @@ class MessengerTest(unittest.TestCase):
 			sent_first_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=message_contents
+					message=message_contents,
+					is_ordered=True
 				)
 			)
 			for index in range(expected_pings_total - 2):
 				client_messenger.send_to_server(
 					request_client_server_message=EchoRequestBaseClientServerMessage(
-						message=message_contents
+						message=message_contents,
+						is_ordered=True
 					)
 				)
 			sent_last_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=message_contents
+					message=message_contents,
+					is_ordered=True
 				)
 			)
 
@@ -2920,7 +2934,8 @@ class MessengerTest(unittest.TestCase):
 		for message_index in range(messages_total):
 			client_messenger.send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=str(message_index)
+					message=str(message_index),
+					is_ordered=True
 				)
 			)
 
@@ -3008,7 +3023,8 @@ class MessengerTest(unittest.TestCase):
 		message_index = 0
 		client_messengers[client_messengers_index].send_to_server(
 			request_client_server_message=EchoRequestBaseClientServerMessage(
-				message=str(message_index)
+				message=str(message_index),
+				is_ordered=True
 			)
 		)
 		message_index += 1
@@ -3019,7 +3035,8 @@ class MessengerTest(unittest.TestCase):
 				client_messengers_index = 0
 			client_messengers[client_messengers_index].send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=str(message_index)
+					message=str(message_index),
+					is_ordered=True
 				)
 			)
 			message_index += 1
@@ -3094,16 +3111,24 @@ class MessengerTest(unittest.TestCase):
 			if found_exception is None:
 				found_exception = exception
 
+		print(f"{datetime.utcnow()}: connecting to server")
+
 		client_messenger.connect_to_server()
+
+		print(f"{datetime.utcnow()}: receiving from server")
+
 		client_messenger.receive_from_server(
 			callback=callback,
 			on_exception=on_exception
 		)
 
+		print(f"{datetime.utcnow()}: sending messages")
+
 		for message_index in range(messages_total):
 			client_messenger.send_to_server(
 				request_client_server_message=EchoRequestBaseClientServerMessage(
-					message=str(message_index)
+					message=str(message_index),
+					is_ordered=True
 				)
 			)
 
