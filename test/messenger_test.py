@@ -12,6 +12,7 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 import multiprocessing as mp
 import matplotlib.pyplot as plt
+import math
 
 
 is_socket_debug_active = False
@@ -3825,6 +3826,318 @@ class MessengerTest(unittest.TestCase):
 		if found_exception is not None:
 			raise found_exception
 
-	def test_unordered_client_server_messages(self):
+	def test_unordered_client_server_messages_100m_10s(self):
+
+		messages_total = 100
+		message_subset_length = 10
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+		previous_ordered_index = -1 - message_subset_length
+		previous_unordered_index = -1
+		is_printing = False
+
+		def callback(echo_response: EchoResponseBaseClientServerMessage):
+			nonlocal callback_total
+			nonlocal previous_ordered_index
+			nonlocal previous_unordered_index
+			nonlocal is_printing
+			nonlocal message_subset_length
+
+			#print(f"{datetime.utcnow()}: callback: echo_response: {echo_response.to_json()}")
+			self.assertIsInstance(echo_response, EchoResponseBaseClientServerMessage)
+			callback_total += 1
+
+			index = int(echo_response.get_message())
+			print(f"index: {index}")
+			subset_index = int(index / message_subset_length) % 2
+			print(f"subset_index: {subset_index}")
+			previous_subset_index = math.floor((index - 1) / message_subset_length) % 2
+			print(f"previous_subset_index: {previous_subset_index}")
+			if subset_index == 0:
+				if previous_subset_index != subset_index:
+					if previous_ordered_index + message_subset_length + 1 != index:
+						raise Exception(f"Failed to jump to next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found ordered index: {index}")
+				else:
+					if previous_ordered_index + 1 != index:
+						raise Exception(f"Failed to find next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found ordered index: {index}")
+				previous_ordered_index = index
+			else:
+				if previous_subset_index != subset_index:
+					if previous_unordered_index + message_subset_length + 1 != index:
+						raise Exception(f"Failed to jump to next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found unordered index: {index}")
+				else:
+					if previous_unordered_index + 1 != index:
+						raise Exception(f"Failed to find next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found unordered index: {index}")
+				previous_unordered_index = index
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending messages")
+
+		for index in range(messages_total):
+			subset_index = int(index / message_subset_length) % 2
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=str(index),
+					is_ordered=(subset_index == 0)
+				)
+			)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing client")
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		# the server encountered an exception but did not close the connect due to it and is still receiving requests
+		if found_exception is not None:
+			raise found_exception
+
+	def test_unordered_client_server_messages_100m_1s(self):
+
+		messages_total = 100
+		message_subset_length = 1
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+		previous_ordered_index = -1 - message_subset_length
+		previous_unordered_index = -1
+		is_printing = False
+
+		def callback(echo_response: EchoResponseBaseClientServerMessage):
+			nonlocal callback_total
+			nonlocal previous_ordered_index
+			nonlocal previous_unordered_index
+			nonlocal is_printing
+			nonlocal message_subset_length
+
+			#print(f"{datetime.utcnow()}: callback: echo_response: {echo_response.to_json()}")
+			self.assertIsInstance(echo_response, EchoResponseBaseClientServerMessage)
+			callback_total += 1
+
+			index = int(echo_response.get_message())
+			#print(f"index: {index}")
+			subset_index = int(index / message_subset_length) % 2
+			#print(f"subset_index: {subset_index}")
+			previous_subset_index = math.floor((index - 1) / message_subset_length) % 2
+			#print(f"previous_subset_index: {previous_subset_index}")
+			if subset_index == 0:
+				if previous_subset_index != subset_index:
+					if previous_ordered_index + message_subset_length + 1 != index:
+						raise Exception(f"Failed to jump to next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found ordered index: {index}")
+				else:
+					if previous_ordered_index + 1 != index:
+						raise Exception(f"Failed to find next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found ordered index: {index}")
+				previous_ordered_index = index
+			else:
+				if previous_subset_index != subset_index:
+					if previous_unordered_index + message_subset_length + 1 != index:
+						raise Exception(f"Failed to jump to next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found unordered index: {index}")
+				else:
+					if previous_unordered_index + 1 != index:
+						raise Exception(f"Failed to find next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found unordered index: {index}")
+				previous_unordered_index = index
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending messages")
+
+		for index in range(messages_total):
+			subset_index = int(index / message_subset_length) % 2
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=str(index),
+					is_ordered=(subset_index == 0)
+				)
+			)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing client")
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		# the server encountered an exception but did not close the connect due to it and is still receiving requests
+		if found_exception is not None:
+			raise found_exception
+
+	def test_unordered_client_server_messages_1000m_1s(self):
+
+		messages_total = 1000
+		message_subset_length = 1
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger = get_default_client_messenger()
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+		previous_ordered_index = -1 - message_subset_length
+		previous_unordered_index = -1
+		is_printing = False
+
+		def callback(echo_response: EchoResponseBaseClientServerMessage):
+			nonlocal callback_total
+			nonlocal previous_ordered_index
+			nonlocal previous_unordered_index
+			nonlocal is_printing
+			nonlocal message_subset_length
+
+			#print(f"{datetime.utcnow()}: callback: echo_response: {echo_response.to_json()}")
+			self.assertIsInstance(echo_response, EchoResponseBaseClientServerMessage)
+			callback_total += 1
+
+			index = int(echo_response.get_message())
+			#print(f"index: {index}")
+			subset_index = int(index / message_subset_length) % 2
+			#print(f"subset_index: {subset_index}")
+			previous_subset_index = math.floor((index - 1) / message_subset_length) % 2
+			#print(f"previous_subset_index: {previous_subset_index}")
+			if subset_index == 0:
+				if previous_subset_index != subset_index:
+					if previous_ordered_index + message_subset_length + 1 != index:
+						raise Exception(f"Failed to jump to next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found ordered index: {index}")
+				else:
+					if previous_ordered_index + 1 != index:
+						raise Exception(f"Failed to find next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found ordered index: {index}")
+				previous_ordered_index = index
+			else:
+				if previous_subset_index != subset_index:
+					if previous_unordered_index + message_subset_length + 1 != index:
+						raise Exception(f"Failed to jump to next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found unordered index: {index}")
+				else:
+					if previous_unordered_index + 1 != index:
+						raise Exception(f"Failed to find next index at index: {index}")
+					else:
+						if is_printing:
+							print(f"{datetime.utcnow()}: found unordered index: {index}")
+				previous_unordered_index = index
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending messages")
+
+		for index in range(messages_total):
+			subset_index = int(index / message_subset_length) % 2
+			client_messenger.send_to_server(
+				request_client_server_message=EchoRequestBaseClientServerMessage(
+					message=str(index),
+					is_ordered=(subset_index == 0)
+				)
+			)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing client")
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		# the server encountered an exception but did not close the connect due to it and is still receiving requests
+		if found_exception is not None:
+			raise found_exception
+
+	def test_child_structure_power_once(self):
 
 		pass

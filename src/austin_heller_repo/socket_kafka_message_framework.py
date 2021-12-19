@@ -451,31 +451,10 @@ class ServerMessenger():
 
 	def __kafka_reader_thread_method(self, read_only_async_handle: ReadOnlyAsyncHandle):
 
-		read_message_async_handle = None  # type: AsyncHandle
-
-		if self.__is_debug and False:
-			def test_method():
-				nonlocal read_only_async_handle
-				nonlocal read_message_async_handle
-				try:
-					while True:
-						if read_only_async_handle.is_cancelled():
-							print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: read_only_async_handle: test_method: (T): {read_only_async_handle.is_cancelled()}")
-							if read_message_async_handle is not None:
-								print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: read_message_async_handle: {read_message_async_handle.is_cancelled()}")
-							time.sleep(0.5)
-							break
-						else:
-							print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: read_only_async_handle: test_method: (F): {read_only_async_handle.is_cancelled()}")
-							if read_message_async_handle is not None:
-								print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: read_message_async_handle: {read_message_async_handle.is_cancelled()}")
-							time.sleep(0.5)
-				except Exception as ex:
-					print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: read_only_async_handle: test_method: ex: {ex}")
-
-			start_thread(test_method)
-
 		try:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: end")
+
 			while self.__is_receiving_from_clients and not read_only_async_handle.is_cancelled():
 
 				if self.__is_debug:
@@ -509,24 +488,12 @@ class ServerMessenger():
 					if self.__is_debug:
 						print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: socket_kafka_message json: {socket_kafka_message.to_json()}")
 
-					if False:
-						async_handle = AsyncHandle(
-							get_result_method=self.__process_client_server_message,
-							client_server_message=socket_kafka_message.get_client_server_message(),
-							is_from_queue=True,
-							source_uuid=socket_kafka_message.get_source_uuid()
-						)
-						async_handle.add_parent(
-							async_handle=read_only_async_handle
-						)
-						async_handle.get_result()
-					else:
-						self.__process_client_server_message(
-							read_only_async_handle=read_only_async_handle,
-							client_server_message=socket_kafka_message.get_client_server_message(),
-							is_from_queue=True,
-							source_uuid=socket_kafka_message.get_source_uuid()
-						)
+					self.__process_client_server_message(
+						read_only_async_handle=read_only_async_handle,
+						client_server_message=socket_kafka_message.get_client_server_message(),
+						is_from_queue=True,
+						source_uuid=socket_kafka_message.get_source_uuid()
+					)
 
 				else:
 					if self.__is_debug:
@@ -536,9 +503,9 @@ class ServerMessenger():
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: ex: {ex}")
 			raise ex
-
-		if self.__is_debug:
-			print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: end")
+		finally:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: ServerMessenger: __kafka_reader_thread_method: end")
 
 	def __process_read_message_from_client_socket(self, read_only_async_handle: ReadOnlyAsyncHandle, source_uuid: str, message: str):
 
