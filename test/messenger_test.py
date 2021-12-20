@@ -100,68 +100,6 @@ def get_default_server_messenger() -> ServerMessenger:
 	)
 
 
-class BaseClientServerMessage(ClientServerMessage, ABC):
-	pass
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict):
-		base_client_server_message_type = BaseClientServerMessageTypeEnum(json_object["__type"])
-		if base_client_server_message_type == BaseClientServerMessageTypeEnum.Announce:
-			return AnnounceBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.AnnounceFailed:
-			return AnnounceFailedBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.HelloWorld:
-			return HelloWorldBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.PressButton:
-			return PressButtonBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.ResetButton:
-			return ResetButtonBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.ResetTransmission:
-			return ResetTransmissionBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.ThreePressesTransmission:
-			return ThreePressesTransmissionBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.PingRequest:
-			return PingRequestBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.PingResponse:
-			return PingResponseBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.EchoRequest:
-			return EchoRequestBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.EchoResponse:
-			return EchoResponseBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.ErrorRequest:
-			return ErrorRequestBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		elif base_client_server_message_type == BaseClientServerMessageTypeEnum.ErrorResponse:
-			return ErrorResponseBaseClientServerMessage.parse_from_json(
-				json_object=json_object
-			)
-		else:
-			raise Exception(f"Unexpected BaseClientServerMessageTypeEnum: {base_client_server_message_type}")
-
-
 class BaseClientServerMessageTypeEnum(ClientServerMessageTypeEnum):
 	HelloWorld = "hello_world"  # basic test
 	Announce = "announce"  # announces name to structure
@@ -181,6 +119,13 @@ class BaseClientServerMessageTypeEnum(ClientServerMessageTypeEnum):
 	PowerOverloadTransmission = "power_overload_transmission"  # if the power button is pressed three times at any stage of normal button presses an overload transmission is sent out to all clients involved
 
 
+class BaseClientServerMessage(ClientServerMessage, ABC):
+
+	@classmethod
+	def get_client_server_message_type_class(cls) -> Type[ClientServerMessageTypeEnum]:
+		return BaseClientServerMessageTypeEnum
+
+
 class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 
 	def __init__(self):
@@ -188,22 +133,14 @@ class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 
 		pass
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.HelloWorld
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		# nothing to add
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> HelloWorldBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 0:
-			raise Exception(f"Unexpected properties sent to be parsed into {HelloWorldBaseClientServerMessage.__name__}")
-		return HelloWorldBaseClientServerMessage()
 
 	def is_response(self) -> bool:
 		return False
@@ -231,24 +168,14 @@ class AnnounceBaseClientServerMessage(BaseClientServerMessage):
 	def get_name(self) -> str:
 		return self.__name
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.Announce
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		json_object["name"] = self.__name
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> AnnounceBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 1:
-			raise Exception(f"Unexpected properties sent to be parsed into {AnnounceBaseClientServerMessage.__name__}")
-		return AnnounceBaseClientServerMessage(
-			**json_object
-		)
 
 	def is_response(self) -> bool:
 		return False
@@ -275,24 +202,14 @@ class AnnounceFailedBaseClientServerMessage(BaseClientServerMessage):
 
 		self.__client_uuid = client_uuid
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.AnnounceFailed
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		json_object["client_uuid"] = self.__client_uuid
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> AnnounceFailedBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 1:
-			raise Exception(f"Unexpected properties sent to be parsed into {AnnounceFailedBaseClientServerMessage.__name__}")
-		return AnnounceFailedBaseClientServerMessage(
-			**json_object
-		)
 
 	def is_response(self) -> bool:
 		return True
@@ -317,22 +234,14 @@ class PressButtonBaseClientServerMessage(BaseClientServerMessage):
 
 		pass
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.PressButton
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		# nothing to add
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> PressButtonBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 0:
-			raise Exception(f"Unexpected properties sent to be parsed into {PressButtonBaseClientServerMessage.__name__}")
-		return PressButtonBaseClientServerMessage()
 
 	def is_response(self) -> bool:
 		return False
@@ -357,22 +266,14 @@ class ResetButtonBaseClientServerMessage(BaseClientServerMessage):
 
 		pass
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.ResetButton
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		# nothing to add
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> ResetButtonBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 0:
-			raise Exception(f"Unexpected properties sent to be parsed into {ResetButtonBaseClientServerMessage.__name__}")
-		return ResetButtonBaseClientServerMessage()
 
 	def is_response(self) -> bool:
 		return False
@@ -397,24 +298,14 @@ class ResetTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
 		self.__client_uuid = client_uuid
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.ResetTransmission
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		json_object["client_uuid"] = self.__client_uuid
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> ResetTransmissionBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 1:
-			raise Exception(f"Unexpected properties sent to be parsed into {ResetTransmissionBaseClientServerMessage.__name__}")
-		return ResetTransmissionBaseClientServerMessage(
-			**json_object
-		)
 
 	def is_response(self) -> bool:
 		return True
@@ -443,7 +334,8 @@ class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def get_power(self) -> int:
 		return self.__power
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.ThreePressesTransmission
 
 	def to_json(self) -> Dict:
@@ -451,17 +343,6 @@ class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 		json_object["client_uuid"] = self.__client_uuid
 		json_object["power"] = self.__power
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> ThreePressesTransmissionBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 2:
-			raise Exception(f"Unexpected properties sent to be parsed into {ThreePressesTransmissionBaseClientServerMessage.__name__}")
-		return ThreePressesTransmissionBaseClientServerMessage(
-			**json_object
-		)
 
 	def is_response(self) -> bool:
 		return True
@@ -484,21 +365,13 @@ class PingRequestBaseClientServerMessage(BaseClientServerMessage):
 	def __init__(self):
 		super().__init__()
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.PingRequest
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> PingRequestBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 0:
-			raise Exception(f"Unexpected properties sent to be parsed into {PingRequestBaseClientServerMessage.__name__}")
-		return PingRequestBaseClientServerMessage()
 
 	def is_response(self) -> bool:
 		return False
@@ -527,7 +400,8 @@ class PingResponseBaseClientServerMessage(BaseClientServerMessage):
 	def get_ping_index(self) -> int:
 		return self.__ping_index
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.PingResponse
 
 	def to_json(self) -> Dict:
@@ -535,17 +409,6 @@ class PingResponseBaseClientServerMessage(BaseClientServerMessage):
 		json_object["client_uuid"] = self.__client_uuid
 		json_object["ping_index"] = self.__ping_index
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> PingResponseBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 2:
-			raise Exception(f"Unexpected properties sent to be parsed into {PingResponseBaseClientServerMessage.__name__}")
-		return PingResponseBaseClientServerMessage(
-			**json_object
-		)
 
 	def is_response(self) -> bool:
 		return True
@@ -574,7 +437,8 @@ class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 	def get_message(self) -> str:
 		return self.__message
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.EchoRequest
 
 	def to_json(self) -> Dict:
@@ -582,17 +446,6 @@ class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 		json_object["message"] = self.__message
 		json_object["is_ordered"] = self.__is_ordered
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> EchoRequestBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 2:
-			raise Exception(f"Unexpected properties sent to be parsed into {EchoRequestBaseClientServerMessage.__name__}")
-		return EchoRequestBaseClientServerMessage(
-			**json_object
-		)
 
 	def is_response(self) -> bool:
 		return False
@@ -621,7 +474,8 @@ class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
 	def get_message(self) -> str:
 		return self.__message
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.EchoResponse
 
 	def to_json(self) -> Dict:
@@ -629,17 +483,6 @@ class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
 		json_object["message"] = self.__message
 		json_object["client_uuid"] = self.__client_uuid
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> EchoResponseBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 2:
-			raise Exception(f"Unexpected properties sent to be parsed into {EchoResponseBaseClientServerMessage.__name__}")
-		return EchoResponseBaseClientServerMessage(
-			**json_object
-		)
 
 	def is_response(self) -> bool:
 		return True
@@ -659,12 +502,11 @@ class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
 
 class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, is_constructor_exception_to_set: str = None, constructor_exception: str = None, get_client_server_message_type_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, get_destination_uuid_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None, response_constructor_arguments: Dict = None):
+	def __init__(self, *, is_constructor_exception_to_set: str = None, constructor_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, get_destination_uuid_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None, response_constructor_arguments: Dict = None):
 		super().__init__()
 
 		self.__is_constructor_exception_to_set = is_constructor_exception_to_set
 		self.__constructor_exception = constructor_exception
-		self.__get_client_server_message_type_exception = get_client_server_message_type_exception
 		self.__to_json_exception = to_json_exception
 		self.__is_response_exception = is_response_exception
 		self.__get_destination_uuid_exception = get_destination_uuid_exception
@@ -683,11 +525,8 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 	def get_response_constructor_arguments(self) -> Dict:
 		return self.__response_constructor_arguments
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
-
-		if self.__get_client_server_message_type_exception is not None:
-			raise Exception(self.__get_client_server_message_type_exception)
-
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.ErrorRequest
 
 	def to_json(self) -> Dict:
@@ -698,7 +537,6 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 		json_object = super().to_json()
 		json_object["is_constructor_exception_to_set"] = self.__is_constructor_exception_to_set
 		json_object["constructor_exception"] = self.__constructor_exception
-		json_object["get_client_server_message_type_exception"] = self.__get_client_server_message_type_exception
 		json_object["to_json_exception"] = self.__to_json_exception
 		json_object["is_response_exception"] = self.__is_response_exception
 		json_object["get_destination_uuid_exception"] = self.__get_destination_uuid_exception
@@ -707,17 +545,6 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 		json_object["get_structural_error_client_server_message_response_exception"] = self.__get_structural_error_client_server_message_response_exception
 		json_object["response_constructor_arguments"] = self.__response_constructor_arguments
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> ErrorRequestBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 10:
-			raise Exception(f"Unexpected properties sent to be parsed into {ErrorRequestBaseClientServerMessage.__name__}")
-		return ErrorRequestBaseClientServerMessage(
-			**json_object
-		)
 
 	def is_response(self) -> bool:
 
@@ -757,13 +584,12 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 
 class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str, is_constructor_exception_to_set: str = None, constructor_exception: str = None, get_client_server_message_type_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, get_destination_uuid_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None):
+	def __init__(self, *, client_uuid: str, is_constructor_exception_to_set: str = None, constructor_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, get_destination_uuid_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None):
 		super().__init__()
 
 		self.__client_uuid = client_uuid
 		self.__is_constructor_exception_to_set = is_constructor_exception_to_set
 		self.__constructor_exception = constructor_exception
-		self.__get_client_server_message_type_exception = get_client_server_message_type_exception
 		self.__to_json_exception = to_json_exception
 		self.__is_response_exception = is_response_exception
 		self.__get_destination_uuid_exception = get_destination_uuid_exception
@@ -778,11 +604,8 @@ class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 			self.__constructor_exception = self.__is_constructor_exception_to_set
 			self.__is_constructor_exception_to_set = None
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
-
-		if self.__get_client_server_message_type_exception is not None:
-			raise Exception(self.__get_client_server_message_type_exception)
-
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.ErrorResponse
 
 	def to_json(self) -> Dict:
@@ -794,7 +617,6 @@ class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 		json_object["client_uuid"] = self.__client_uuid
 		json_object["is_constructor_exception_to_set"] = self.__is_constructor_exception_to_set
 		json_object["constructor_exception"] = self.__constructor_exception
-		json_object["get_client_server_message_type_exception"] = self.__get_client_server_message_type_exception
 		json_object["to_json_exception"] = self.__to_json_exception
 		json_object["is_response_exception"] = self.__is_response_exception
 		json_object["get_destination_uuid_exception"] = self.__get_destination_uuid_exception
@@ -802,17 +624,6 @@ class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 		json_object["is_ordered_exception"] = self.__is_ordered_exception
 		json_object["get_structural_error_client_server_message_response_exception"] = self.__get_structural_error_client_server_message_response_exception
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> ErrorResponseBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 10:
-			raise Exception(f"Unexpected properties sent to be parsed into {ErrorResponseBaseClientServerMessage.__name__}")
-		return ErrorResponseBaseClientServerMessage(
-			**json_object
-		)
 
 	def is_response(self) -> bool:
 
@@ -860,21 +671,14 @@ class PowerButtonBaseClientServerMessage(BaseClientServerMessage):
 	def is_anonymous(self) -> bool:
 		return self.__is_anonymous
 
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.PowerButton
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
+		json_object["is_anonymous"] = self.__is_anonymous
 		return json_object
-
-	@staticmethod
-	def parse_from_json(*, json_object: Dict) -> PowerButtonBaseClientServerMessage:
-		ClientServerMessage.remove_base_keys(
-			json_object=json_object
-		)
-		if len(json_object) != 0:
-			raise Exception(f"Unexpected properties sent to be parsed into {PowerButtonBaseClientServerMessage.__name__}")
-		return PowerButtonBaseClientServerMessage()
 
 	def is_response(self) -> bool:
 		return False
@@ -884,6 +688,38 @@ class PowerButtonBaseClientServerMessage(BaseClientServerMessage):
 
 	def is_structural_influence(self) -> bool:
 		return True
+
+	def is_ordered(self) -> bool:
+		return False
+
+	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+		return None
+
+
+class PowerOverloadTransmissionBaseClientServerMessage(BaseClientServerMessage):
+
+	def __init__(self, *, client_uuid: str):
+		super().__init__()
+
+		self.__client_uuid = client_uuid
+
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
+		return BaseClientServerMessageTypeEnum.PowerOverloadTransmission
+
+	def to_json(self) -> Dict:
+		json_object = super().to_json()
+		json_object["client_uuid"] = self.__client_uuid
+		return json_object
+
+	def is_response(self) -> bool:
+		return True
+
+	def get_destination_uuid(self) -> str:
+		return self.__client_uuid
+
+	def is_structural_influence(self) -> bool:
+		return False
 
 	def is_ordered(self) -> bool:
 		return False
@@ -908,6 +744,7 @@ class PowerStructure(Structure):
 		)
 
 		self.__power_total = 0
+		self.__client_uuids_to_inform_on_power_overload = []  # type: List[str]
 
 		self.add_transition(
 			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
@@ -930,16 +767,30 @@ class PowerStructure(Structure):
 			before=f"_{PowerStructure.__name__}{PowerStructure.__power_button_pressed.__name__}"
 		)
 
+	def add_client_uuid_for_power_overload_transmission(self, *, client_uuid: str):
+		if client_uuid not in self.__client_uuids_to_inform_on_power_overload:
+			self.__client_uuids_to_inform_on_power_overload.append(client_uuid)
+
 	def get_power(self) -> int:
 		return self.__power_total
 
 	def __power_button_pressed(self, power_button: PowerButtonBaseClientServerMessage, source_uuid: str):
 
-		self.__power_total += 1
-		if self.__power_total >= 3:
-			pass
+		if not power_button.is_anonymous():
+			self.add_client_uuid_for_power_overload_transmission(
+				client_uuid=source_uuid
+			)
 
-		raise NotImplementedError()
+		self.__power_total += 1
+		if self.__power_total == 3:
+
+			for client_uuid in self.__client_uuids_to_inform_on_power_overload:
+				self.process_response(
+					client_server_message=PowerOverloadTransmissionBaseClientServerMessage(
+						client_uuid=client_uuid
+					)
+				)
+			self.__client_uuids_to_inform_on_power_overload.clear()
 
 
 class ButtonStructureStateEnum(StructureStateEnum):
@@ -963,6 +814,9 @@ class ButtonStructure(Structure):
 		self.__pings_total = 0
 
 		self.__power_structure = PowerStructure()
+		self.register_child_structure(
+			structure=self.__power_structure
+		)
 
 		self.add_transition(
 			trigger=BaseClientServerMessageTypeEnum.Announce.value,
@@ -1041,6 +895,27 @@ class ButtonStructure(Structure):
 			before=f"_{ButtonStructure.__name__}{ButtonStructure.__error_requested.__name__}"
 		)
 
+		self.add_transition(
+			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
+			source=ButtonStructureStateEnum.ZeroPresses.value,
+			dest=ButtonStructureStateEnum.ZeroPresses.value,
+			before=f"_{ButtonStructure.__name__}{ButtonStructure.__power_button_pressed.__name__}"
+		)
+
+		self.add_transition(
+			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
+			source=ButtonStructureStateEnum.OnePress.value,
+			dest=ButtonStructureStateEnum.OnePress.value,
+			before=f"_{ButtonStructure.__name__}{ButtonStructure.__power_button_pressed.__name__}"
+		)
+
+		self.add_transition(
+			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
+			source=ButtonStructureStateEnum.TwoPresses.value,
+			dest=ButtonStructureStateEnum.TwoPresses.value,
+			before=f"_{ButtonStructure.__name__}{ButtonStructure.__power_button_pressed.__name__}"
+		)
+
 	def __name_announced(self, announce: AnnounceBaseClientServerMessage, source_uuid: str):
 		self.__name_per_client_uuid[source_uuid] = announce.get_name()
 
@@ -1100,6 +975,12 @@ class ButtonStructure(Structure):
 			client_server_message=ErrorResponseBaseClientServerMessage(
 				**constructor_arguments
 			)
+		)
+
+	def __power_button_pressed(self, power_button: PowerButtonBaseClientServerMessage, source_uuid: str):
+		self.__power_structure.update_structure(
+			client_server_message=power_button,
+			source_uuid=source_uuid
 		)
 
 
@@ -1795,7 +1676,7 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(0.1)
 
-		print(f"{datetime.utcnow()}: sending first press")
+		print(f"{datetime.utcnow()}: sending ping")
 
 		client_messenger.send_to_server(
 			request_client_server_message=PingRequestBaseClientServerMessage()
@@ -3200,61 +3081,6 @@ class MessengerTest(unittest.TestCase):
 		# the server encountered an exception, closing the connection
 		self.assertIsInstance(found_exception, ReadWriteSocketClosedException)
 
-	def test_determining_client_server_message_type_raises_exception_when_sending_to_server_messenger(self):
-
-		server_messenger = get_default_server_messenger()
-
-		server_messenger.start_receiving_from_clients()
-
-		time.sleep(1)
-
-		client_messenger = get_default_client_messenger()
-
-		client_messenger.connect_to_server()
-
-		callback_total = 0
-
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal callback_total
-			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
-			callback_total += 1
-			self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
-
-		found_exception = None  # type: Exception
-
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			found_exception = exception
-
-		client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
-		)
-
-		print(f"{datetime.utcnow()}: sending error messages")
-
-		expected_exception = f"test exception: {uuid.uuid4()}"
-
-		with self.assertRaises(Exception) as assertedException:
-			client_messenger.send_to_server(
-				request_client_server_message=ErrorRequestBaseClientServerMessage(
-					get_client_server_message_type_exception=expected_exception
-				)
-			)
-
-		self.assertEqual(expected_exception, str(assertedException.exception))
-
-		time.sleep(5)
-
-		client_messenger.dispose()
-
-		time.sleep(1)
-
-		server_messenger.stop_receiving_from_clients()
-
-		if found_exception is not None:
-			raise found_exception
-
 	def test_getting_json_of_client_server_message_raises_exception_when_sending_to_server_messenger(self):
 
 		server_messenger = get_default_server_messenger()
@@ -3759,7 +3585,7 @@ class MessengerTest(unittest.TestCase):
 		if found_exception is not None:
 			raise found_exception
 
-	def test_getting_structural_error_client_server_message_response_from_client_server_message_raises_exception_when_processing_in_server_messenger_and_causes_exception(self):
+	def test_parse_client_server_message_in_response_raises_exception_when_parsing_in_server_messenger(self):
 
 		server_messenger = get_default_server_messenger()
 
@@ -3825,6 +3651,8 @@ class MessengerTest(unittest.TestCase):
 		# the server encountered an exception but did not close the connect due to it and is still receiving requests
 		if found_exception is not None:
 			raise found_exception
+
+# TODO create more server-side ErrorResponse tests
 
 	def test_unordered_client_server_messages_100m_10s(self):
 
@@ -4138,6 +3966,268 @@ class MessengerTest(unittest.TestCase):
 		if found_exception is not None:
 			raise found_exception
 
-	def test_child_structure_power_once(self):
+	def test_child_structure_power_once_then_reset(self):
 
-		pass
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			callback_total += 1
+			print(f"received callback: {client_server_message}")
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending first announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="First"
+			)
+		)
+
+		print(f"{datetime.utcnow()}: sending first power")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=False
+			)
+		)
+
+		print(f"{datetime.utcnow()}: sending reset")
+
+		client_messenger.send_to_server(
+			request_client_server_message=ResetButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposed")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(0, callback_total)
+		self.assertIsNone(found_exception)
+
+	def test_child_structure_power_three_times(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(power_overload_transmission: PowerOverloadTransmissionBaseClientServerMessage):
+			nonlocal callback_total
+			callback_total += 1
+			self.assertIsInstance(power_overload_transmission, PowerOverloadTransmissionBaseClientServerMessage)
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending first announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="First"
+			)
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: first power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=False
+			)
+		)
+
+		print(f"{datetime.utcnow()}: first power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: second power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=False
+			)
+		)
+
+		print(f"{datetime.utcnow()}: second power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: third power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=False
+			)
+		)
+
+		print(f"{datetime.utcnow()}: third power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposed")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
+		self.assertIsNone(found_exception)
+
+	def test_child_structure_power_three_times_anonymous(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			callback_total += 1
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending first announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="First"
+			)
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: first power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: first power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: second power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: second power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: third power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: third power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposed")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(0, callback_total)
+		self.assertIsNone(found_exception)

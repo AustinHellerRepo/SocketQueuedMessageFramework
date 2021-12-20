@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from austin_heller_repo.common import StringEnum, HostPointer
+from austin_heller_repo.common import StringEnum, HostPointer, static_init
 from austin_heller_repo.socket import ClientSocketFactory, ClientSocket, ServerSocketFactory, ServerSocket, ReadWriteSocketClosedException
 from austin_heller_repo.threading import AsyncHandle, Semaphore, ReadOnlyAsyncHandle, PreparedSemaphoreRequest, SemaphoreRequestQueue, SemaphoreRequest, start_thread, ThreadCycle, ThreadCycleCache, CyclingUnitOfWork, SequentialQueue, SequentialQueueReader, SequentialQueueWriter, SequentialQueueFactory, ConstantAsyncHandle
 from typing import List, Tuple, Dict, Type, Callable
@@ -18,24 +18,57 @@ class ClientServerMessageTypeEnum(StringEnum):
 
 class ClientServerMessage(ABC):
 
-	def __init__(self):
+	__client_server_message_class_per_client_server_message_type = {}  # type: Dict[ClientServerMessageTypeEnum, Type[ClientServerMessage]]
 
+	def __init__(self):
 		pass
 
+	@classmethod
 	@abstractmethod
-	def get_client_server_message_type(self) -> ClientServerMessageTypeEnum:
+	def get_client_server_message_type_class(cls) -> Type[ClientServerMessageTypeEnum]:
 		raise NotImplementedError()
+
+	@classmethod
+	@abstractmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
+		pass
 
 	@abstractmethod
 	def to_json(self) -> Dict:
 		return {
-			"__type": self.get_client_server_message_type().value
+			"__type": self.__class__.get_client_server_message_type().value
 		}
 
-	@staticmethod
-	@abstractmethod
-	def parse_from_json(*, json_object: Dict):
-		raise NotImplementedError()
+	@classmethod
+	def __map_client_server_message_class_to_client_server_message_type(cls):
+		subclasses = list(cls.__subclasses__())  # type: List[Type[ClientServerMessage]]
+		for subclass in subclasses:
+			client_server_message_type = subclass.get_client_server_message_type()
+			ClientServerMessage.__client_server_message_class_per_client_server_message_type[client_server_message_type] = subclass
+
+	@classmethod
+	def get_client_server_message_class(cls, client_server_message_type: ClientServerMessageTypeEnum):
+		if not bool(ClientServerMessage.__client_server_message_class_per_client_server_message_type):
+			cls.__map_client_server_message_class_to_client_server_message_type()
+		return ClientServerMessage.__client_server_message_class_per_client_server_message_type[client_server_message_type]
+
+	@classmethod
+	def parse_from_json(cls, *, json_object: Dict):
+		client_server_message_type_class = cls.get_client_server_message_type_class()
+		client_server_message_type = client_server_message_type_class(json_object["__type"])
+		client_server_message_class = cls.get_client_server_message_class(
+			client_server_message_type=client_server_message_type
+		)
+		ClientServerMessage.remove_base_keys(
+			json_object=json_object
+		)
+		if json_object:
+			client_server_message = client_server_message_class(
+				**json_object
+			)
+		else:
+			client_server_message = client_server_message_class()
+		return client_server_message
 
 	@staticmethod
 	def remove_base_keys(*, json_object: Dict):
@@ -107,12 +140,12 @@ class ClientMessenger():
 					if not self.__is_closing:
 
 						client_server_message = self.__client_server_message_class.parse_from_json(
-							json_object=json.loads(client_server_message_json_string)
+							json_object=json.loads(client_server_message_json_string),
+
 						)  # type: ClientServerMessage
 
 						if self.__is_debug:
-							print(
-								f"{datetime.utcnow()}: ClientMessenger: receive_from_server: parsed: {client_server_message.get_client_server_message_type()}")
+							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: parsed: {client_server_message.__class__.get_client_server_message_type()}")
 
 						callback(client_server_message)
 
@@ -263,14 +296,31 @@ class Structure(Machine, ABC):
 		)
 
 		self.__on_response = None
+		self.__registered_child_structures = []  # type: List[Structure]
+		self.__registered_child_structures_semaphore = Semaphore()
 
 	def set_on_response(self, *, on_response: Callable[[ClientServerMessage], None]):
+		self.__registered_child_structures_semaphore.acquire()
 		self.__on_response = on_response
+		for child_structure in self.__registered_child_structures:
+			child_structure.set_on_response(
+				on_response=on_response
+			)
+		self.__registered_child_structures_semaphore.release()
+
+	def register_child_structure(self, *, structure: Structure):
+		self.__registered_child_structures_semaphore.acquire()
+		if self.__on_response is not None:
+			structure.set_on_response(
+				on_response=self.__on_response
+			)
+		self.__registered_child_structures.append(structure)
+		self.__registered_child_structures_semaphore.release()
 
 	def update_structure(self, *, client_server_message: ClientServerMessage, source_uuid: str):
 		try:
 			# the update_structure_influence is passed into the trigger so that responses can be appended to its internal list
-			self.trigger(client_server_message.get_client_server_message_type().value, client_server_message, source_uuid)
+			self.trigger(client_server_message.__class__.get_client_server_message_type().value, client_server_message, source_uuid)
 		except MachineError as ex:
 			print(f"update_structure: ex: {ex}")
 			raise StructureTriggerInvalidForStateException(
