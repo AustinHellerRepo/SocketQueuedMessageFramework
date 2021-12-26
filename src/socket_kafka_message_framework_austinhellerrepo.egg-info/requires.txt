@@ -1,5 +1,0 @@
-common-austinhellerrepo@ git+https://github.com/AustinHellerRepo/Common
-threading-austinhellerrepo@ git+https://github.com/AustinHellerRepo/Threading
-kafka-manager-austinhellerrepo@ git+https://github.com/AustinHellerRepo/KafkaManager
-socket-austinhellerrepo@ git+https://github.com/AustinHellerRepo/Socket
-transitions

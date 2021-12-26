@@ -1,6 +1,6 @@
 from __future__ import annotations
 import unittest
-from src.austin_heller_repo.socket_kafka_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, StructureFactory
+from src.austin_heller_repo.socket_kafka_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, StructureFactory, StructureTriggerInvalidForStateException
 from austin_heller_repo.socket import ClientSocketFactory, ServerSocketFactory, ReadWriteSocketClosedException
 from austin_heller_repo.common import HostPointer
 from austin_heller_repo.kafka_manager import KafkaSequentialQueueFactory, KafkaManager, KafkaWrapper, KafkaManagerFactory
@@ -20,6 +20,7 @@ is_client_messenger_debug_active = False
 is_server_messenger_debug_active = False
 is_kafka_debug_active = False
 is_kafka_sequential_queue = False
+is_plotted = True
 
 
 def get_default_local_host_pointer() -> HostPointer:
@@ -54,8 +55,6 @@ def get_default_client_messenger() -> ClientMessenger:
 	return ClientMessenger(
 		client_socket_factory=ClientSocketFactory(
 			to_server_packet_bytes_length=4096,
-			server_read_failed_delay_seconds=0.1,
-			is_ssl=False,
 			is_debug=is_socket_debug_active
 		),
 		server_host_pointer=get_default_local_host_pointer(),
@@ -88,8 +87,6 @@ def get_default_server_messenger() -> ServerMessenger:
 			to_client_packet_bytes_length=4096,
 			listening_limit_total=10,
 			accept_timeout_seconds=10.0,
-			client_read_failed_delay_seconds=0.1,
-			is_ssl=False,
 			is_debug=is_socket_debug_active
 		),
 		sequential_queue_factory=sequential_queue_factory,
@@ -117,6 +114,9 @@ class BaseClientServerMessageTypeEnum(ClientServerMessageTypeEnum):
 	ErrorResponse = "error_response"  # the response that will throw a predefined exception
 	PowerButton = "power_button"  # increments a child structure by the number of presses processed by the parent structure
 	PowerOverloadTransmission = "power_overload_transmission"  # if the power button is pressed three times at any stage of normal button presses an overload transmission is sent out to all clients involved
+	PowerButtonFailed = "power_button_failed"  # power was already overloaded when attempted
+	TimerRequest = "timer_request"  # set a timer for a later response
+	TimerResponse = "timer_response"  # a response scheduled by the timer_request
 
 
 class BaseClientServerMessage(ClientServerMessage, ABC):
@@ -154,7 +154,7 @@ class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -189,7 +189,8 @@ class AnnounceBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+		print(f"{datetime.utcnow()}: AnnounceBaseClientServerMessage: get_structural_error_client_server_message_response: structure state: {structure_trigger_invalid_for_state_exception.get_structure_state()}")
 		return AnnounceFailedBaseClientServerMessage(
 			client_uuid=destination_uuid
 		)
@@ -223,7 +224,7 @@ class AnnounceFailedBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -255,7 +256,7 @@ class PressButtonBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -287,7 +288,7 @@ class ResetButtonBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -319,19 +320,19 @@ class ResetTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
 class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str, power: int):
+	def __init__(self, *, client_uuid: str, power: str):
 		super().__init__()
 
 		self.__client_uuid = client_uuid
 		self.__power = power
 
-	def get_power(self) -> int:
+	def get_power(self) -> str:
 		return self.__power
 
 	@classmethod
@@ -356,7 +357,7 @@ class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -385,7 +386,7 @@ class PingRequestBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -422,7 +423,7 @@ class PingResponseBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -459,7 +460,7 @@ class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return self.__is_ordered
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -496,7 +497,7 @@ class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -574,7 +575,7 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 
 		if self.__get_structural_error_client_server_message_response_exception is not None:
 			raise Exception(self.__get_structural_error_client_server_message_response_exception)
@@ -653,7 +654,7 @@ class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 
 		return True
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 
 		if self.__get_structural_error_client_server_message_response_exception is not None:
 			raise Exception(self.__get_structural_error_client_server_message_response_exception)
@@ -692,8 +693,10 @@ class PowerButtonBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return False
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
-		return None
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+		return PowerButtonFailedBaseClientServerMessage(
+			client_uuid=destination_uuid
+		)
 
 
 class PowerOverloadTransmissionBaseClientServerMessage(BaseClientServerMessage):
@@ -724,15 +727,123 @@ class PowerOverloadTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return False
 
-	def get_structural_error_client_server_message_response(self, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+		return None
+
+
+class PowerButtonFailedBaseClientServerMessage(BaseClientServerMessage):
+
+	def __init__(self, *, client_uuid: str):
+		super().__init__()
+
+		self.__client_uuid = client_uuid
+
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
+		return BaseClientServerMessageTypeEnum.PowerButtonFailed
+
+	def to_json(self) -> Dict:
+		json_object = super().to_json()
+		json_object["client_uuid"] = self.__client_uuid
+		return json_object
+
+	def is_response(self) -> bool:
+		return True
+
+	def get_destination_uuid(self) -> str:
+		return self.__client_uuid
+
+	def is_structural_influence(self) -> bool:
+		return False
+
+	def is_ordered(self) -> bool:
+		return False
+
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+		return None
+
+
+class TimerRequestBaseClientServerMessage(BaseClientServerMessage):
+
+	def __init__(self, *, message: str, seconds: float):
+		super().__init__()
+
+		self.__message = message
+		self.__seconds = seconds
+
+	def get_message(self) -> str:
+		return self.__message
+
+	def get_seconds(self) -> float:
+		return self.__seconds
+
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
+		return BaseClientServerMessageTypeEnum.TimerRequest
+
+	def to_json(self) -> Dict:
+		json_object = super().to_json()
+		json_object["message"] = self.__message
+		json_object["seconds"] = self.__seconds
+		return json_object
+
+	def is_response(self) -> bool:
+		return False
+
+	def get_destination_uuid(self) -> str:
+		return None
+
+	def is_structural_influence(self) -> bool:
+		return True
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+		return None
+
+
+class TimerResponseBaseClientServerMessage(BaseClientServerMessage):
+
+	def __init__(self, *, client_uuid: str, message: str):
+		super().__init__()
+
+		self.__client_uuid = client_uuid
+		self.__message = message
+
+	def get_message(self) -> str:
+		return self.__message
+
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
+		return BaseClientServerMessageTypeEnum.TimerResponse
+
+	def to_json(self) -> Dict:
+		json_object = super().to_json()
+		json_object["client_uuid"] = self.__client_uuid
+		json_object["message"] = self.__message
+		return json_object
+
+	def is_response(self) -> bool:
+		return True
+
+	def get_destination_uuid(self) -> str:
+		return self.__client_uuid
+
+	def is_structural_influence(self) -> bool:
+		return False
+
+	def is_ordered(self) -> bool:
+		return True
+
+	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
 class PowerStructureStateEnum(StructureStateEnum):
-	ZeroPower = "zero_power"
-	OnePower = "one_power"
-	TwoPower = "two_power"
-	ThreePower = "three_power"
+	Underpowered = "underpower"
+	Powered = "powered"
+	Overpowered = "overpowered"
 
 
 class PowerStructure(Structure):
@@ -740,7 +851,7 @@ class PowerStructure(Structure):
 	def __init__(self):
 		super().__init__(
 			states=PowerStructureStateEnum,
-			initial_state=PowerStructureStateEnum.ZeroPower
+			initial_state=PowerStructureStateEnum.Underpowered
 		)
 
 		self.__power_total = 0
@@ -748,22 +859,15 @@ class PowerStructure(Structure):
 
 		self.add_transition(
 			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
-			source=PowerStructureStateEnum.ZeroPower.value,
-			dest=PowerStructureStateEnum.OnePower.value,
+			source=PowerStructureStateEnum.Underpowered.value,
+			dest=PowerStructureStateEnum.Underpowered.value,
 			before=f"_{PowerStructure.__name__}{PowerStructure.__power_button_pressed.__name__}"
 		)
 
 		self.add_transition(
 			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
-			source=PowerStructureStateEnum.OnePower.value,
-			dest=PowerStructureStateEnum.TwoPower.value,
-			before=f"_{PowerStructure.__name__}{PowerStructure.__power_button_pressed.__name__}"
-		)
-
-		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
-			source=PowerStructureStateEnum.TwoPower.value,
-			dest=PowerStructureStateEnum.ThreePower.value,
+			source=PowerStructureStateEnum.Powered.value,
+			dest=PowerStructureStateEnum.Powered.value,
 			before=f"_{PowerStructure.__name__}{PowerStructure.__power_button_pressed.__name__}"
 		)
 
@@ -771,10 +875,18 @@ class PowerStructure(Structure):
 		if client_uuid not in self.__client_uuids_to_inform_on_power_overload:
 			self.__client_uuids_to_inform_on_power_overload.append(client_uuid)
 
-	def get_power(self) -> int:
-		return self.__power_total
+	def get_power(self) -> str:
+		if self.__power_total < 3:
+			return "underpowered"
+		elif self.__power_total == 3:
+			return "powered"
+		else:
+			return "overpowered"
 
 	def __power_button_pressed(self, power_button: PowerButtonBaseClientServerMessage, source_uuid: str):
+
+		print(f"{datetime.utcnow()}: PowerStructure: __power_button_pressed: start")
+		print(f"get state: {self.state}")
 
 		if not power_button.is_anonymous():
 			self.add_client_uuid_for_power_overload_transmission(
@@ -783,6 +895,16 @@ class PowerStructure(Structure):
 
 		self.__power_total += 1
 		if self.__power_total == 3:
+			# set the state to "powered"
+			self.set_next_state(
+				structure_state=PowerStructureStateEnum.Powered
+			)
+		elif self.__power_total == 4:
+			# set the state to "overpowered"
+			# NOTE this will also permit an impossible state change if another power button message is sent
+			self.set_next_state(
+				structure_state=PowerStructureStateEnum.Overpowered
+			)
 
 			for client_uuid in self.__client_uuids_to_inform_on_power_overload:
 				self.process_response(
@@ -791,6 +913,8 @@ class PowerStructure(Structure):
 					)
 				)
 			self.__client_uuids_to_inform_on_power_overload.clear()
+
+		print(f"{datetime.utcnow()}: PowerStructure: __power_button_pressed: end")
 
 
 class ButtonStructureStateEnum(StructureStateEnum):
@@ -916,6 +1040,13 @@ class ButtonStructure(Structure):
 			before=f"_{ButtonStructure.__name__}{ButtonStructure.__power_button_pressed.__name__}"
 		)
 
+		self.add_transition(
+			trigger=BaseClientServerMessageTypeEnum.TimerRequest.value,
+			source=ButtonStructureStateEnum.ZeroPresses.value,
+			dest=ButtonStructureStateEnum.ZeroPresses.value,
+			before=f"_{ButtonStructure.__name__}{ButtonStructure.__timer_requested.__name__}"
+		)
+
 	def __name_announced(self, announce: AnnounceBaseClientServerMessage, source_uuid: str):
 		self.__name_per_client_uuid[source_uuid] = announce.get_name()
 
@@ -982,6 +1113,20 @@ class ButtonStructure(Structure):
 			client_server_message=power_button,
 			source_uuid=source_uuid
 		)
+
+	def __timer_requested(self, timer_request: TimerRequestBaseClientServerMessage, source_uuid: str):
+		def timer_thread_method():
+			nonlocal timer_request
+			nonlocal source_uuid
+
+			time.sleep(timer_request.get_seconds())
+			self.process_response(
+				client_server_message=TimerResponseBaseClientServerMessage(
+					client_uuid=source_uuid,
+					message=timer_request.get_message()
+				)
+			)
+		start_thread(timer_thread_method)
 
 
 class ButtonStructureFactory(StructureFactory):
@@ -1080,7 +1225,33 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(5)
 
-	def test_connect_client_to_server(self):
+	def test_connect_client_to_server_and_client_disposes_first(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		client_messenger.send_to_server(
+			request_client_server_message=HelloWorldBaseClientServerMessage()
+		)
+
+		time.sleep(1)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		time.sleep(1)
+
+	def test_connect_client_to_server_and_server_stops_first(self):
 
 		client_messenger = get_default_client_messenger()
 
@@ -1100,7 +1271,104 @@ class MessengerTest(unittest.TestCase):
 
 		server_messenger.stop_receiving_from_clients()
 
+		time.sleep(1)
+
 		client_messenger.dispose()
+
+		time.sleep(1)
+
+	def test_connect_client_to_server_client_receives_and_client_disposes_first(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		time.sleep(1)
+
+		def callback(client_server_message: ClientServerMessage):
+			raise Exception("Unexpected response")
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		time.sleep(1)
+
+		client_messenger.send_to_server(
+			request_client_server_message=HelloWorldBaseClientServerMessage()
+		)
+
+		time.sleep(1)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		time.sleep(1)
+
+		if found_exception is not None:
+			raise found_exception
+
+	def test_connect_client_to_server_client_receives_and_server_stops_first(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		time.sleep(1)
+
+		def callback(client_server_message: ClientServerMessage):
+			raise Exception("Unexpected response")
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		time.sleep(1)
+
+		client_messenger.send_to_server(
+			request_client_server_message=HelloWorldBaseClientServerMessage()
+		)
+
+		time.sleep(1)
+
+		server_messenger.stop_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.dispose()
+
+		time.sleep(1)
+
+		self.assertIsInstance(found_exception, ReadWriteSocketClosedException)
 
 	def test_press_button_three_times(self):
 		# send three presses and wait for a reply
@@ -1962,7 +2230,6 @@ class MessengerTest(unittest.TestCase):
 		test_messages_per_second = 500
 		expected_pings_total = test_seconds * test_messages_per_second
 		delay_between_sending_message_seconds = (1.0 / test_messages_per_second) * 0.6
-		is_result_plotted = False
 
 		#expected_pings_total = 1000
 		#delay_between_sending_message_seconds = 0.0025
@@ -2060,7 +2327,7 @@ class MessengerTest(unittest.TestCase):
 			print(f"Max diff seconds {max(diff_seconds_totals)} at {diff_seconds_totals.index(max(diff_seconds_totals))}")
 			print(f"Ave diff seconds {sum(diff_seconds_totals)/expected_pings_total}")
 
-			if is_result_plotted:
+			if is_plotted:
 				plt.scatter(sent_datetimes, range(len(sent_datetimes)), s=1, c="red")
 				plt.scatter(received_datetimes, range(len(received_datetimes)), s=1, c="blue")
 				plt.show()
@@ -2735,6 +3002,116 @@ class MessengerTest(unittest.TestCase):
 				name="Test Name"
 			)
 		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: disposed")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
+		self.assertIsNone(found_exception)
+
+	def test_client_attempts_message_impossible_for_child_structure_state(self):
+		# call power 4 times
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(power_overload_transmission: PowerOverloadTransmissionBaseClientServerMessage):
+			nonlocal callback_total
+			callback_total += 1
+			self.assertIsInstance(power_overload_transmission, PowerOverloadTransmissionBaseClientServerMessage)
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending first announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="First"
+			)
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: first power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=False
+			)
+		)
+
+		print(f"{datetime.utcnow()}: first power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: second power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=False
+			)
+		)
+
+		print(f"{datetime.utcnow()}: second power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: third power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=False
+			)
+		)
+
+		print(f"{datetime.utcnow()}: third power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: fourth power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=False
+			)
+		)
+
+		print(f"{datetime.utcnow()}: fourth power: end")
+
+		time.sleep(0.1)
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
@@ -4039,7 +4416,7 @@ class MessengerTest(unittest.TestCase):
 		self.assertEqual(0, callback_total)
 		self.assertIsNone(found_exception)
 
-	def test_child_structure_power_three_times(self):
+	def test_child_structure_power_four_times(self):
 
 		client_messenger = get_default_client_messenger()
 
@@ -4115,6 +4492,18 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(0.1)
 
+		print(f"{datetime.utcnow()}: fourth power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=False
+			)
+		)
+
+		print(f"{datetime.utcnow()}: fourth power: end")
+
+		time.sleep(0.1)
+
 		print(f"{datetime.utcnow()}: waiting for messages")
 
 		time.sleep(5)
@@ -4136,7 +4525,7 @@ class MessengerTest(unittest.TestCase):
 		self.assertEqual(1, callback_total)
 		self.assertIsNone(found_exception)
 
-	def test_child_structure_power_three_times_anonymous(self):
+	def test_child_structure_power_three_times_anonymous_underpowered(self):
 
 		client_messenger = get_default_client_messenger()
 
@@ -4153,6 +4542,160 @@ class MessengerTest(unittest.TestCase):
 		def callback(client_server_message: ClientServerMessage):
 			nonlocal callback_total
 			callback_total += 1
+			print(f"Unexpected message: {client_server_message}")
+			raise Exception("This client should not be receiving messages.")
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending first announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="First"
+			)
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: first power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: first power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: second power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: second power: end")
+
+		time.sleep(0.1)
+
+		press_client_messenger = get_default_client_messenger()
+
+		press_client_messenger.connect_to_server()
+
+		def press_callback(three_presses_transmission: ThreePressesTransmissionBaseClientServerMessage):
+			nonlocal callback_total
+			callback_total += 1
+			self.assertIsInstance(three_presses_transmission, ThreePressesTransmissionBaseClientServerMessage)
+			self.assertEqual("underpowered", three_presses_transmission.get_power())
+
+		press_client_messenger.receive_from_server(
+			callback=press_callback,
+			on_exception=on_exception
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: first press: start")
+
+		press_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: first press: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: second press: start")
+
+		press_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: second press: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: third press: start")
+
+		press_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: third press: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: third power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: third power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: start")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: end")
+
+		print(f"{datetime.utcnow()}: dispose press_client_messenger: start")
+
+		press_client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: dispose press_client_messenger: end")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
+
+		if found_exception is not None:
+			raise found_exception
+
+	def test_child_structure_power_three_times_anonymous_powered(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			callback_total += 1
+			raise Exception("This client should not be receiving messages.")
 
 		found_exception = None  # type: Exception
 
@@ -4211,15 +4754,493 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(0.1)
 
+		press_client_messenger = get_default_client_messenger()
+
+		press_client_messenger.connect_to_server()
+
+		def press_callback(three_presses_transmission: ThreePressesTransmissionBaseClientServerMessage):
+			nonlocal callback_total
+			callback_total += 1
+			self.assertIsInstance(three_presses_transmission, ThreePressesTransmissionBaseClientServerMessage)
+			self.assertEqual("powered", three_presses_transmission.get_power())
+
+		press_client_messenger.receive_from_server(
+			callback=press_callback,
+			on_exception=on_exception
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: first press: start")
+
+		press_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: first press: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: second press: start")
+
+		press_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: second press: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: third press: start")
+
+		press_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: third press: end")
+
+		time.sleep(0.1)
+
 		print(f"{datetime.utcnow()}: waiting for messages")
 
 		time.sleep(5)
 
-		print(f"{datetime.utcnow()}: disposing")
+		print(f"{datetime.utcnow()}: dispose client_messenger: start")
 
 		client_messenger.dispose()
 
-		print(f"{datetime.utcnow()}: disposed")
+		print(f"{datetime.utcnow()}: dispose client_messenger: end")
+
+		print(f"{datetime.utcnow()}: dispose press_client_messenger: start")
+
+		press_client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: dispose press_client_messenger: end")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
+
+		if found_exception is not None:
+			raise found_exception
+
+	def test_child_structure_power_four_times_anonymous_overpowered(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal callback_total
+			callback_total += 1
+			raise Exception("This client should not be receiving messages.")
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending first announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="First"
+			)
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: first power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: first power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: second power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: second power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: third power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: third power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: fourth power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: fourth power: end")
+
+		time.sleep(0.1)
+
+		press_client_messenger = get_default_client_messenger()
+
+		press_client_messenger.connect_to_server()
+
+		def press_callback(three_presses_transmission: ThreePressesTransmissionBaseClientServerMessage):
+			nonlocal callback_total
+			callback_total += 1
+			self.assertIsInstance(three_presses_transmission, ThreePressesTransmissionBaseClientServerMessage)
+			self.assertEqual("overpowered", three_presses_transmission.get_power())
+
+		press_client_messenger.receive_from_server(
+			callback=press_callback,
+			on_exception=on_exception
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: first press: start")
+
+		press_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: first press: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: second press: start")
+
+		press_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: second press: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: third press: start")
+
+		press_client_messenger.send_to_server(
+			request_client_server_message=PressButtonBaseClientServerMessage()
+		)
+
+		print(f"{datetime.utcnow()}: third press: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: start")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: end")
+
+		print(f"{datetime.utcnow()}: dispose press_client_messenger: start")
+
+		press_client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: dispose press_client_messenger: end")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
+
+		if found_exception is not None:
+			raise found_exception
+
+	def test_child_structure_power_five_times_anonymous_impossible_state(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+
+		def callback(power_button_failed: PowerButtonFailedBaseClientServerMessage):
+			nonlocal callback_total
+			callback_total += 1
+			self.assertIsInstance(power_button_failed, PowerButtonFailedBaseClientServerMessage)
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		print(f"{datetime.utcnow()}: sending first announcement")
+
+		client_messenger.send_to_server(
+			request_client_server_message=AnnounceBaseClientServerMessage(
+				name="First"
+			)
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: first power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: first power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: second power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: second power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: third power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: third power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: fourth power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: fourth power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: fifth power: start")
+
+		client_messenger.send_to_server(
+			request_client_server_message=PowerButtonBaseClientServerMessage(
+				is_anonymous=True
+			)
+		)
+
+		print(f"{datetime.utcnow()}: fifth power: end")
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: start")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: end")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
+
+		if found_exception is not None:
+			raise found_exception
+
+	def test_timer_request_1s(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+		expected_message = str(uuid.uuid4())
+
+		def callback(timer_response: TimerResponseBaseClientServerMessage):
+			nonlocal callback_total
+			nonlocal expected_message
+			callback_total += 1
+			print(f"{datetime.utcnow()}: received message")
+			self.assertIsInstance(timer_response, TimerResponseBaseClientServerMessage)
+			self.assertEqual(expected_message, timer_response.get_message())
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: sending message")
+
+		client_messenger.send_to_server(
+			request_client_server_message=TimerRequestBaseClientServerMessage(
+				message=expected_message,
+				seconds=1.0
+			)
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: start")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: end")
+
+		print(f"{datetime.utcnow()}: stopping")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped")
+
+		time.sleep(5)
+
+		self.assertEqual(1, callback_total)
+
+		if found_exception is not None:
+			raise found_exception
+
+	def test_timer_request_after_client_disposed(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+		expected_message = str(uuid.uuid4())
+
+		def callback(timer_response: TimerResponseBaseClientServerMessage):
+			nonlocal callback_total
+			nonlocal expected_message
+			callback_total += 1
+			print(f"{datetime.utcnow()}: received message")
+			self.assertIsInstance(timer_response, TimerResponseBaseClientServerMessage)
+			self.assertEqual(expected_message, timer_response.get_message())
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: sending message")
+
+		client_messenger.send_to_server(
+			request_client_server_message=TimerRequestBaseClientServerMessage(
+				message=expected_message,
+				seconds=3.0
+			)
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(0.5)
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: start")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: end")
+
+		time.sleep(4.0)
 
 		print(f"{datetime.utcnow()}: stopping")
 
@@ -4230,4 +5251,76 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(5)
 
 		self.assertEqual(0, callback_total)
-		self.assertIsNone(found_exception)
+
+		if found_exception is not None:
+			raise found_exception
+
+	def test_timer_request_after_server_stopped(self):
+
+		client_messenger = get_default_client_messenger()
+
+		server_messenger = get_default_server_messenger()
+
+		server_messenger.start_receiving_from_clients()
+
+		time.sleep(1)
+
+		client_messenger.connect_to_server()
+
+		callback_total = 0
+		expected_message = str(uuid.uuid4())
+
+		def callback(timer_response: TimerResponseBaseClientServerMessage):
+			nonlocal callback_total
+			nonlocal expected_message
+			callback_total += 1
+			print(f"{datetime.utcnow()}: received message")
+			self.assertIsInstance(timer_response, TimerResponseBaseClientServerMessage)
+			self.assertEqual(expected_message, timer_response.get_message())
+
+		found_exception = None  # type: Exception
+
+		def on_exception(exception: Exception):
+			nonlocal found_exception
+			found_exception = exception
+
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		time.sleep(0.1)
+
+		print(f"{datetime.utcnow()}: sending message")
+
+		client_messenger.send_to_server(
+			request_client_server_message=TimerRequestBaseClientServerMessage(
+				message=expected_message,
+				seconds=10.0
+			)
+		)
+
+		print(f"{datetime.utcnow()}: waiting for messages")
+
+		time.sleep(0.5)
+
+		print(f"{datetime.utcnow()}: stopping server")
+
+		server_messenger.stop_receiving_from_clients()
+
+		print(f"{datetime.utcnow()}: stopped server")
+
+		time.sleep(12.0)
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: start")
+
+		client_messenger.dispose()
+
+		print(f"{datetime.utcnow()}: dispose client_messenger: end")
+
+		time.sleep(5)
+
+		self.assertEqual(0, callback_total)
+		self.assertIsInstance(found_exception, ReadWriteSocketClosedException)
+
+# TODO determine where the lingering thread is (2021-12-09)

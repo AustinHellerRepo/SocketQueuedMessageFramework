@@ -1,5 +1,5 @@
 import unittest
-from src.austin_heller_repo.socket_kafka_message_framework import StructureFactory, Structure, StructureStateEnum, UpdateStructureInfluence
+from src.austin_heller_repo.socket_kafka_message_framework import StructureFactory, Structure, StructureStateEnum
 from austin_heller_repo.kafka_manager import KafkaReader, KafkaWrapper, KafkaManagerFactory, KafkaManager, KafkaAsyncWriter
 from austin_heller_repo.common import StringEnum
 from typing import List, Tuple, Dict, Callable, Type

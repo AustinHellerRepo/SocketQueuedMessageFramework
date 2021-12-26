@@ -19,3 +19,5 @@ pip-wheel-metadata/
 share/python-wheels/
 MANIFEST
 geckodriver.log
+*.key
+*.pem
