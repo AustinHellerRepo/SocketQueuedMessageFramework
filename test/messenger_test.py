@@ -1,6 +1,6 @@
 from __future__ import annotations
 import unittest
-from src.austin_heller_repo.socket_kafka_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, StructureFactory, StructureTriggerInvalidForStateException
+from src.austin_heller_repo.socket_queued_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, StructureFactory, StructureTransitionException, StructureInfluence
 from austin_heller_repo.socket import ClientSocketFactory, ServerSocketFactory, ReadWriteSocketClosedException
 from austin_heller_repo.common import HostPointer
 from austin_heller_repo.kafka_manager import KafkaSequentialQueueFactory, KafkaManager, KafkaWrapper, KafkaManagerFactory
@@ -20,7 +20,7 @@ is_client_messenger_debug_active = False
 is_server_messenger_debug_active = False
 is_kafka_debug_active = False
 is_kafka_sequential_queue = False
-is_plotted = True
+is_plotted = False
 
 
 def get_default_local_host_pointer() -> HostPointer:
@@ -154,7 +154,7 @@ class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -189,8 +189,8 @@ class AnnounceBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
-		print(f"{datetime.utcnow()}: AnnounceBaseClientServerMessage: get_structural_error_client_server_message_response: structure state: {structure_trigger_invalid_for_state_exception.get_structure_state()}")
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
+		print(f"{datetime.utcnow()}: AnnounceBaseClientServerMessage: get_structural_error_client_server_message_response: structure state: {structure_transition_exception.get_structure_state()}")
 		return AnnounceFailedBaseClientServerMessage(
 			client_uuid=destination_uuid
 		)
@@ -224,7 +224,7 @@ class AnnounceFailedBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -256,7 +256,7 @@ class PressButtonBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -288,7 +288,7 @@ class ResetButtonBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -320,7 +320,7 @@ class ResetTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -357,7 +357,7 @@ class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -386,7 +386,7 @@ class PingRequestBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -423,7 +423,7 @@ class PingResponseBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -460,7 +460,7 @@ class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return self.__is_ordered
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -497,7 +497,7 @@ class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -575,7 +575,7 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 
 		if self.__get_structural_error_client_server_message_response_exception is not None:
 			raise Exception(self.__get_structural_error_client_server_message_response_exception)
@@ -654,7 +654,7 @@ class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 
 		if self.__get_structural_error_client_server_message_response_exception is not None:
 			raise Exception(self.__get_structural_error_client_server_message_response_exception)
@@ -693,7 +693,7 @@ class PowerButtonBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return False
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return PowerButtonFailedBaseClientServerMessage(
 			client_uuid=destination_uuid
 		)
@@ -727,7 +727,7 @@ class PowerOverloadTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return False
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -759,7 +759,7 @@ class PowerButtonFailedBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return False
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -799,7 +799,7 @@ class TimerRequestBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -836,7 +836,7 @@ class TimerResponseBaseClientServerMessage(BaseClientServerMessage):
 	def is_ordered(self) -> bool:
 		return True
 
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
@@ -858,17 +858,17 @@ class PowerStructure(Structure):
 		self.__client_uuids_to_inform_on_power_overload = []  # type: List[str]
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
-			source=PowerStructureStateEnum.Underpowered.value,
-			dest=PowerStructureStateEnum.Underpowered.value,
-			before=f"_{PowerStructure.__name__}{PowerStructure.__power_button_pressed.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
+			start_structure_state=PowerStructureStateEnum.Underpowered,
+			end_structure_state=PowerStructureStateEnum.Underpowered,
+			on_transition=self.__power_button_pressed
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
-			source=PowerStructureStateEnum.Powered.value,
-			dest=PowerStructureStateEnum.Powered.value,
-			before=f"_{PowerStructure.__name__}{PowerStructure.__power_button_pressed.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
+			start_structure_state=PowerStructureStateEnum.Powered,
+			end_structure_state=PowerStructureStateEnum.Powered,
+			on_transition=self.__power_button_pressed
 		)
 
 	def add_client_uuid_for_power_overload_transmission(self, *, client_uuid: str):
@@ -883,10 +883,13 @@ class PowerStructure(Structure):
 		else:
 			return "overpowered"
 
-	def __power_button_pressed(self, power_button: PowerButtonBaseClientServerMessage, source_uuid: str):
+	def __power_button_pressed(self, structure_influence: StructureInfluence):
 
 		print(f"{datetime.utcnow()}: PowerStructure: __power_button_pressed: start")
-		print(f"get state: {self.state}")
+		print(f"get state: {self.get_state()}")
+
+		power_button = structure_influence.get_client_server_message()  # type: PowerButtonBaseClientServerMessage
+		source_uuid = structure_influence.get_source_uuid()
 
 		if not power_button.is_anonymous():
 			self.add_client_uuid_for_power_overload_transmission(
@@ -896,13 +899,13 @@ class PowerStructure(Structure):
 		self.__power_total += 1
 		if self.__power_total == 3:
 			# set the state to "powered"
-			self.set_next_state(
+			self.set_state(
 				structure_state=PowerStructureStateEnum.Powered
 			)
 		elif self.__power_total == 4:
 			# set the state to "overpowered"
 			# NOTE this will also permit an impossible state change if another power button message is sent
-			self.set_next_state(
+			self.set_state(
 				structure_state=PowerStructureStateEnum.Overpowered
 			)
 
@@ -943,114 +946,117 @@ class ButtonStructure(Structure):
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.Announce.value,
-			source=ButtonStructureStateEnum.ZeroPresses.value,
-			dest=ButtonStructureStateEnum.ZeroPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__name_announced.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.Announce,
+			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			on_transition=self.__name_announced
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.PressButton.value,
-			source=ButtonStructureStateEnum.ZeroPresses.value,
-			dest=ButtonStructureStateEnum.OnePress.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__button_pressed.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.PressButton,
+			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			end_structure_state=ButtonStructureStateEnum.OnePress,
+			on_transition=self.__button_pressed
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.PressButton.value,
-			source=ButtonStructureStateEnum.OnePress.value,
-			dest=ButtonStructureStateEnum.TwoPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__button_pressed.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.PressButton,
+			start_structure_state=ButtonStructureStateEnum.OnePress,
+			end_structure_state=ButtonStructureStateEnum.TwoPresses,
+			on_transition=self.__button_pressed
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.PressButton.value,
-			source=ButtonStructureStateEnum.TwoPresses.value,
-			dest=ButtonStructureStateEnum.ThreePresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__button_pressed.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.PressButton,
+			start_structure_state=ButtonStructureStateEnum.TwoPresses,
+			end_structure_state=ButtonStructureStateEnum.ThreePresses,
+			on_transition=self.__button_pressed
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.ResetButton.value,
-			source=ButtonStructureStateEnum.ZeroPresses.value,
-			dest=ButtonStructureStateEnum.ZeroPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__button_reset.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.ResetButton,
+			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			on_transition=self.__button_reset
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.ResetButton.value,
-			source=ButtonStructureStateEnum.OnePress.value,
-			dest=ButtonStructureStateEnum.ZeroPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__button_reset.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.ResetButton,
+			start_structure_state=ButtonStructureStateEnum.OnePress,
+			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			on_transition=self.__button_reset
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.ResetButton.value,
-			source=ButtonStructureStateEnum.TwoPresses.value,
-			dest=ButtonStructureStateEnum.ZeroPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__button_reset.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.ResetButton,
+			start_structure_state=ButtonStructureStateEnum.TwoPresses,
+			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			on_transition=self.__button_reset
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.ThreePressesTransmission.value,
-			source=ButtonStructureStateEnum.ThreePresses.value,
-			dest=ButtonStructureStateEnum.ZeroPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__three_presses_transmission_sent.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.ThreePressesTransmission,
+			start_structure_state=ButtonStructureStateEnum.ThreePresses,
+			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			on_transition=self.__three_presses_transmission_sent
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.PingRequest.value,
-			source=ButtonStructureStateEnum.ZeroPresses.value,
-			dest=ButtonStructureStateEnum.ZeroPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__ping_requested.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.PingRequest,
+			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			on_transition=self.__ping_requested
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.EchoRequest.value,
-			source=ButtonStructureStateEnum.ZeroPresses.value,
-			dest=ButtonStructureStateEnum.ZeroPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__echo_requested.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.EchoRequest,
+			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			on_transition=self.__echo_requested
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.ErrorRequest.value,
-			source=ButtonStructureStateEnum.ZeroPresses.value,
-			dest=ButtonStructureStateEnum.ZeroPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__error_requested.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.ErrorRequest,
+			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			on_transition=self.__error_requested
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
-			source=ButtonStructureStateEnum.ZeroPresses.value,
-			dest=ButtonStructureStateEnum.ZeroPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__power_button_pressed.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
+			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			on_transition=self.__power_button_pressed
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
-			source=ButtonStructureStateEnum.OnePress.value,
-			dest=ButtonStructureStateEnum.OnePress.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__power_button_pressed.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
+			start_structure_state=ButtonStructureStateEnum.OnePress,
+			end_structure_state=ButtonStructureStateEnum.OnePress,
+			on_transition=self.__power_button_pressed
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.PowerButton.value,
-			source=ButtonStructureStateEnum.TwoPresses.value,
-			dest=ButtonStructureStateEnum.TwoPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__power_button_pressed.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
+			start_structure_state=ButtonStructureStateEnum.TwoPresses,
+			end_structure_state=ButtonStructureStateEnum.TwoPresses,
+			on_transition=self.__power_button_pressed
 		)
 
 		self.add_transition(
-			trigger=BaseClientServerMessageTypeEnum.TimerRequest.value,
-			source=ButtonStructureStateEnum.ZeroPresses.value,
-			dest=ButtonStructureStateEnum.ZeroPresses.value,
-			before=f"_{ButtonStructure.__name__}{ButtonStructure.__timer_requested.__name__}"
+			client_server_message_type=BaseClientServerMessageTypeEnum.TimerRequest,
+			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
+			on_transition=self.__timer_requested
 		)
 
-	def __name_announced(self, announce: AnnounceBaseClientServerMessage, source_uuid: str):
+	def __name_announced(self, structure_influence: StructureInfluence):
+		announce = structure_influence.get_client_server_message()  # type: AnnounceBaseClientServerMessage
+		source_uuid = structure_influence.get_source_uuid()
 		self.__name_per_client_uuid[source_uuid] = announce.get_name()
 
-	def __button_pressed(self, press_button: PressButtonBaseClientServerMessage, source_uuid: str):
+	def __button_pressed(self, structure_influence: StructureInfluence):
+		source_uuid = structure_influence.get_source_uuid()
 		if source_uuid not in self.__pressed_button_client_uuids:
 			self.__pressed_button_client_uuids.append(source_uuid)
 		if source_uuid in self.__name_per_client_uuid:
@@ -1066,7 +1072,7 @@ class ButtonStructure(Structure):
 				)
 			)
 
-	def __button_reset(self, reset_button: ResetButtonBaseClientServerMessage, source_uuid: str):
+	def __button_reset(self, structure_influence: StructureInfluence):
 		for client_uuid in self.__pressed_button_client_uuids:
 			client_server_message = ResetTransmissionBaseClientServerMessage(
 				client_uuid=client_uuid
@@ -1076,10 +1082,11 @@ class ButtonStructure(Structure):
 			)
 		self.__pressed_button_client_uuids.clear()
 
-	def __three_presses_transmission_sent(self, three_presses_transmission: ThreePressesTransmissionBaseClientServerMessage, source_uuid: str):
+	def __three_presses_transmission_sent(self, structure_influence: StructureInfluence):
 		self.__pressed_button_client_uuids.clear()
 
-	def __ping_requested(self, ping_request: PingRequestBaseClientServerMessage, source_uuid: str):
+	def __ping_requested(self, structure_influence: StructureInfluence):
+		source_uuid = structure_influence.get_source_uuid()
 		self.process_response(
 			client_server_message=PingResponseBaseClientServerMessage(
 				client_uuid=source_uuid,
@@ -1088,7 +1095,9 @@ class ButtonStructure(Structure):
 		)
 		self.__pings_total += 1
 
-	def __echo_requested(self, echo_request: EchoRequestBaseClientServerMessage, source_uuid: str):
+	def __echo_requested(self, structure_influence: StructureInfluence):
+		echo_request = structure_influence.get_client_server_message()  # type: EchoRequestBaseClientServerMessage
+		source_uuid = structure_influence.get_source_uuid()
 		message = echo_request.get_message()
 		self.process_response(
 			client_server_message=EchoResponseBaseClientServerMessage(
@@ -1097,7 +1106,9 @@ class ButtonStructure(Structure):
 			)
 		)
 
-	def __error_requested(self, error_request: ErrorRequestBaseClientServerMessage, source_uuid: str):
+	def __error_requested(self, structure_influence: StructureInfluence):
+		error_request = structure_influence.get_client_server_message()  # type: ErrorRequestBaseClientServerMessage
+		source_uuid = structure_influence.get_source_uuid()
 		constructor_arguments = error_request.get_response_constructor_arguments()
 		if constructor_arguments is None:
 			constructor_arguments = {}
@@ -1108,13 +1119,15 @@ class ButtonStructure(Structure):
 			)
 		)
 
-	def __power_button_pressed(self, power_button: PowerButtonBaseClientServerMessage, source_uuid: str):
+	def __power_button_pressed(self, structure_influence: StructureInfluence):
 		self.__power_structure.update_structure(
-			client_server_message=power_button,
-			source_uuid=source_uuid
+			structure_influence=structure_influence
 		)
 
-	def __timer_requested(self, timer_request: TimerRequestBaseClientServerMessage, source_uuid: str):
+	def __timer_requested(self, structure_influence: StructureInfluence):
+		timer_request = structure_influence.get_client_server_message()  # type: TimerRequestBaseClientServerMessage
+		source_uuid = structure_influence.get_source_uuid()
+
 		def timer_thread_method():
 			nonlocal timer_request
 			nonlocal source_uuid
@@ -1169,31 +1182,35 @@ class MessengerTest(unittest.TestCase):
 
 	def setUp(self) -> None:
 
-		print(f"setUp: started: {datetime.utcnow()}")
+		print(f"{datetime.utcnow()}: setUp: start")
 
-		kafka_manager = get_default_kafka_manager_factory().get_kafka_manager()
+		if is_kafka_sequential_queue:
 
-		print(f"setUp: initialized: {datetime.utcnow()}")
+			kafka_manager = get_default_kafka_manager_factory().get_kafka_manager()
 
-		topics = kafka_manager.get_topics().get_result()  # type: List[str]
+			print(f"setUp: initialized: {datetime.utcnow()}")
 
-		print(f"setUp: get_topics: {datetime.utcnow()}")
+			topics = kafka_manager.get_topics().get_result()  # type: List[str]
 
-		for topic in topics:
+			print(f"setUp: get_topics: {datetime.utcnow()}")
 
-			print(f"setUp: topic: {topic}: {datetime.utcnow()}")
+			for topic in topics:
 
-			async_handle = kafka_manager.remove_topic(
-				topic_name=topic
-			)
+				print(f"setUp: topic: {topic}: {datetime.utcnow()}")
 
-			print(f"setUp: async: {topic}: {datetime.utcnow()}")
+				async_handle = kafka_manager.remove_topic(
+					topic_name=topic
+				)
 
-			async_handle.get_result()
+				print(f"setUp: async: {topic}: {datetime.utcnow()}")
 
-			print(f"setUp: result: {topic}: {datetime.utcnow()}")
+				async_handle.get_result()
 
-		time.sleep(1)
+				print(f"setUp: result: {topic}: {datetime.utcnow()}")
+
+			time.sleep(1)
+
+		print(f"{datetime.utcnow()}: setUp: end")
 
 	def test_initialize_client_messenger(self):
 

@@ -7,7 +7,6 @@ from typing import List, Tuple, Dict, Type, Callable
 import json
 from datetime import datetime
 import uuid
-from transitions import MachineError, Machine
 import time
 import multiprocessing as mp
 
@@ -91,7 +90,7 @@ class ClientServerMessage(ABC):
 		raise NotImplementedError()
 
 	@abstractmethod
-	def get_structural_error_client_server_message_response(self, structure_trigger_invalid_for_state_exception: StructureTriggerInvalidForStateException, destination_uuid: str) -> ClientServerMessage:
+	def get_structural_error_client_server_message_response(self, *, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		raise NotImplementedError()
 
 
@@ -271,20 +270,44 @@ class StructureStateEnum(StringEnum):
 	pass
 
 
-class StructureTriggerInvalidForStateException(Exception):
+class StructureInfluence():
 
-	def __init__(self, client_server_message: ClientServerMessage, inner_exception: Exception, structure_state: StructureStateEnum, *args):
-		super().__init__(*args)
+	def __init__(self, *, client_server_message: ClientServerMessage, source_uuid: str):
 
 		self.__client_server_message = client_server_message
-		self.__inner_exception = inner_exception
-		self.__structure_state = structure_state
+		self.__source_uuid = source_uuid
 
 	def get_client_server_message(self) -> ClientServerMessage:
 		return self.__client_server_message
 
-	def get_inner_exception(self) -> Exception:
-		return self.__inner_exception
+	def get_source_uuid(self) -> str:
+		return self.__source_uuid
+
+
+class StructureTransition():
+
+	def __init__(self, *, destination_structure_state: StructureStateEnum, on_transition: Callable[[StructureInfluence], None]):
+
+		self.__destination_structure_state = destination_structure_state
+		self.__on_transition = on_transition
+
+	def get_destination_structure_state(self) -> StructureStateEnum:
+		return self.__destination_structure_state
+
+	def get_on_transition(self) -> Callable[[StructureInfluence], None]:
+		return self.__on_transition
+
+
+class StructureTransitionException(Exception, ABC):
+
+	def __init__(self, *, structure_influence: StructureInfluence, structure_state: StructureStateEnum):
+		super().__init__()
+
+		self.__structure_influence = structure_influence
+		self.__structure_state = structure_state
+
+	def get_structure_influence(self) -> StructureInfluence:
+		return self.__structure_influence
 
 	def get_structure_state(self) -> StructureStateEnum:
 		return self.__structure_state
@@ -293,31 +316,55 @@ class StructureTriggerInvalidForStateException(Exception):
 		return str(type(self))
 
 
-class Structure(Machine, ABC):
+class StructureTransitionMissingTriggerException(StructureTransitionException):
 
-	def __init__(self, *, states: Type[StructureStateEnum], initial_state: StructureStateEnum):
+	def __init__(self, *, structure_influence: StructureInfluence, structure_state: StructureStateEnum):
 		super().__init__(
-			model=self,
-			states=states.get_list(),
-			initial=initial_state.value,
-			after_state_change=self.__after_state_change
+			structure_influence=structure_influence,
+			structure_state=structure_state
 		)
 
-		self.__structure_states_class = states
+	def __str__(self):
+		return str(type(self))
 
-		self.__on_response = None
+
+class StructureTransitionMissingStartStructureStateException(StructureTransitionException):
+
+	def __init__(self, *, structure_influence: StructureInfluence, structure_state: StructureStateEnum):
+		super().__init__(
+			structure_influence=structure_influence,
+			structure_state=structure_state
+		)
+
+	def __str__(self):
+		return str(type(self))
+
+
+class Structure(ABC):
+
+	def __init__(self, *, states: Type[StructureStateEnum], initial_state: StructureStateEnum):
+
+		self.__states = states
+		self.__initial_state = initial_state
+
+		self.__current_state = None  # type: StructureStateEnum
+		self.__on_response = None  # type: Callable[[ClientServerMessage], None]
 		self.__registered_child_structures = []  # type: List[Structure]
 		self.__registered_child_structures_semaphore = Semaphore()
 		self.__next_state = None  # type: StructureStateEnum
+		self.__transitions = {}  # type: Dict[ClientServerMessageTypeEnum, Dict[StructureStateEnum, StructureTransition]]
 
-	def __after_state_change(self, client_server_message: ClientServerMessage, source_uuid: str):
-		if self.__next_state is not None:
-			next_state = self.__next_state
-			self.__next_state = None
-			self.set_state(next_state.value)
+		self.__initialize()
 
-	def set_next_state(self, *, structure_state: StructureStateEnum):
-		self.__next_state = structure_state
+	def __initialize(self):
+
+		self.__current_state = self.__initial_state
+
+	def get_state(self) -> StructureStateEnum:
+		return self.__current_state
+
+	def set_state(self, *, structure_state: StructureStateEnum):
+		self.__current_state = structure_state
 
 	def set_on_response(self, *, on_response: Callable[[ClientServerMessage], None]):
 		self.__registered_child_structures_semaphore.acquire()
@@ -337,22 +384,46 @@ class Structure(Machine, ABC):
 		self.__registered_child_structures.append(structure)
 		self.__registered_child_structures_semaphore.release()
 
-	def update_structure(self, *, client_server_message: ClientServerMessage, source_uuid: str):
+	def update_structure(self, *, structure_influence: StructureInfluence):
 		try:
-			# the update_structure_influence is passed into the trigger so that responses can be appended to its internal list
-			self.trigger(client_server_message.__class__.get_client_server_message_type().value, client_server_message, source_uuid)
-		except MachineError as ex:
+			client_server_message_type = structure_influence.get_client_server_message().__class__.get_client_server_message_type()
+			if client_server_message_type not in self.__transitions:
+				raise StructureTransitionMissingTriggerException(
+					structure_influence=structure_influence,
+					structure_state=self.__current_state
+				)
+			structure_transition_per_start_structure_state = self.__transitions[client_server_message_type]
+			if self.__current_state not in structure_transition_per_start_structure_state:
+				raise StructureTransitionMissingStartStructureStateException(
+					structure_influence=structure_influence,
+					structure_state=self.__current_state
+				)
+			structure_transition = structure_transition_per_start_structure_state[self.__current_state]  # type: StructureTransition
+			self.__current_state = structure_transition.get_destination_structure_state()
+			structure_transition.get_on_transition()(structure_influence)
+		except StructureTransitionException as ex:
+			print(f"update_structure: ex: StructureTransitionException: state: {ex.get_structure_state()}")
+			print(f"update_structure: ex: StructureTransitionException: type: {ex.get_structure_influence().get_client_server_message().__class__.get_client_server_message_type()}")
+			print(f"update_structure: ex: StructureTransitionException: source: {ex.get_structure_influence().get_source_uuid()}")
+			raise
+		except Exception as ex:
 			print(f"update_structure: ex: {ex}")
-			raise StructureTriggerInvalidForStateException(
-				client_server_message=client_server_message,
-				inner_exception=ex,
-				structure_state=self.__structure_states_class(self.state)
-			)
+			raise
 
 	def process_response(self, *, client_server_message: ClientServerMessage):
 		if self.__on_response is None:
 			raise Exception(f"Must first set on_response before expecting responses to be processed by this structure. Type: {type(self)}.")
 		self.__on_response(client_server_message)
+
+	def add_transition(self, *, client_server_message_type: ClientServerMessageTypeEnum, start_structure_state: StructureStateEnum, end_structure_state: StructureStateEnum, on_transition: Callable[[StructureInfluence], None]):
+		if client_server_message_type not in self.__transitions:
+			self.__transitions[client_server_message_type] = {}
+		if start_structure_state in self.__transitions[client_server_message_type]:
+			raise Exception(f"Unexpected duplicate trigger/state for transition. Trigger: {client_server_message_type}. State: {start_structure_state}.")
+		self.__transitions[client_server_message_type][start_structure_state] = StructureTransition(
+			destination_structure_state=end_structure_state,
+			on_transition=on_transition
+		)
 
 
 class StructureFactory(ABC):
@@ -502,14 +573,16 @@ class ServerMessenger():
 						try:
 							# NOTE tested calling self.__structure.process_response directly here and found no real performance increase
 							self.__structure.update_structure(
-								client_server_message=client_server_message,
-								source_uuid=source_uuid
+								structure_influence=StructureInfluence(
+									client_server_message=client_server_message,
+									source_uuid=source_uuid
+								)
 							)
-						except StructureTriggerInvalidForStateException as ex:
+						except StructureTransitionException as ex:
 							if self.__is_debug:
 								print(f"{datetime.utcnow()}: ServerMessenger: __process_client_server_message: structure: ex: {ex}")
 							response_client_server_message = client_server_message.get_structural_error_client_server_message_response(
-								structure_trigger_invalid_for_state_exception=ex,
+								structure_transition_exception=ex,
 								destination_uuid=source_uuid
 							)
 							if response_client_server_message is not None:

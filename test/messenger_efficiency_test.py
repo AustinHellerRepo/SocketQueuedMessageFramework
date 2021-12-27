@@ -4,7 +4,7 @@ import time
 from typing import List, Tuple, Dict, Callable, Type
 from test.messenger_test import get_default_local_host_pointer, get_default_client_messenger, get_default_server_messenger, HelloWorldBaseClientServerMessage, EchoRequestBaseClientServerMessage, EchoResponseBaseClientServerMessage, AnnounceBaseClientServerMessage, HelloWorldBaseClientServerMessage
 from austin_heller_repo.threading import AsyncHandle, start_thread, Semaphore
-from src.austin_heller_repo.socket_kafka_message_framework import ClientMessenger, ClientServerMessage
+from src.austin_heller_repo.socket_queued_message_framework import ClientMessenger, ClientServerMessage
 import matplotlib.pyplot as plt
 
 

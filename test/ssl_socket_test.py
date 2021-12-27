@@ -1,6 +1,6 @@
 # TODO install git@github.com:AustinHellerRepo/CertificateManager
 import unittest
-from src.austin_heller_repo.socket_kafka_message_framework import ClientMessenger, ServerMessenger
+from src.austin_heller_repo.socket_queued_message_framework import ClientMessenger, ServerMessenger
 from test.messenger_test import BaseClientServerMessage, ButtonStructureFactory, EchoResponseBaseClientServerMessage, HelloWorldBaseClientServerMessage, EchoRequestBaseClientServerMessage
 from test.messenger_efficiency_test import show_plot
 from austin_heller_repo.certificate_manager import CertificateManagerClient, Certificate
