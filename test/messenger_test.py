@@ -121,8 +121,8 @@ class BaseClientServerMessageTypeEnum(ClientServerMessageTypeEnum):
 
 class BaseClientServerMessage(ClientServerMessage, ABC):
 
-	@staticmethod
-	def get_client_server_message_type_class() -> Type[ClientServerMessageTypeEnum]:
+	@classmethod
+	def get_client_server_message_type_class(cls) -> Type[ClientServerMessageTypeEnum]:
 		return BaseClientServerMessageTypeEnum
 
 
@@ -133,8 +133,8 @@ class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 
 		pass
 
-	@staticmethod
-	def get_client_server_message_type() -> ClientServerMessageTypeEnum:
+	@classmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.HelloWorld
 
 	def to_json(self) -> Dict:
