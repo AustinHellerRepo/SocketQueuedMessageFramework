@@ -121,8 +121,8 @@ class BaseClientServerMessageTypeEnum(ClientServerMessageTypeEnum):
 
 class BaseClientServerMessage(ClientServerMessage, ABC):
 
-	@classmethod
-	def get_client_server_message_type_class(cls) -> Type[ClientServerMessageTypeEnum]:
+	@staticmethod
+	def get_client_server_message_type_class() -> Type[ClientServerMessageTypeEnum]:
 		return BaseClientServerMessageTypeEnum
 
 
@@ -133,8 +133,8 @@ class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 
 		pass
 
-	@classmethod
-	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
+	@staticmethod
+	def get_client_server_message_type() -> ClientServerMessageTypeEnum:
 		return BaseClientServerMessageTypeEnum.HelloWorld
 
 	def to_json(self) -> Dict:
@@ -910,7 +910,7 @@ class PowerStructure(Structure):
 			)
 
 			for client_uuid in self.__client_uuids_to_inform_on_power_overload:
-				self.process_response(
+				self.send_response(
 					client_server_message=PowerOverloadTransmissionBaseClientServerMessage(
 						client_uuid=client_uuid
 					)
@@ -1065,7 +1065,7 @@ class ButtonStructure(Structure):
 			print(f"button pressed by {source_uuid}")
 		self.__presses_total += 1
 		if self.__presses_total == 3:
-			self.process_response(
+			self.send_response(
 				client_server_message=ThreePressesTransmissionBaseClientServerMessage(
 					client_uuid=source_uuid,
 					power=self.__power_structure.get_power()
@@ -1077,7 +1077,7 @@ class ButtonStructure(Structure):
 			client_server_message = ResetTransmissionBaseClientServerMessage(
 				client_uuid=client_uuid
 			)
-			self.process_response(
+			self.send_response(
 				client_server_message=client_server_message
 			)
 		self.__pressed_button_client_uuids.clear()
@@ -1087,7 +1087,7 @@ class ButtonStructure(Structure):
 
 	def __ping_requested(self, structure_influence: StructureInfluence):
 		source_uuid = structure_influence.get_source_uuid()
-		self.process_response(
+		self.send_response(
 			client_server_message=PingResponseBaseClientServerMessage(
 				client_uuid=source_uuid,
 				ping_index=self.__pings_total
@@ -1099,7 +1099,7 @@ class ButtonStructure(Structure):
 		echo_request = structure_influence.get_client_server_message()  # type: EchoRequestBaseClientServerMessage
 		source_uuid = structure_influence.get_source_uuid()
 		message = echo_request.get_message()
-		self.process_response(
+		self.send_response(
 			client_server_message=EchoResponseBaseClientServerMessage(
 				message=message,
 				client_uuid=source_uuid
@@ -1113,7 +1113,7 @@ class ButtonStructure(Structure):
 		if constructor_arguments is None:
 			constructor_arguments = {}
 		constructor_arguments["client_uuid"] = source_uuid
-		self.process_response(
+		self.send_response(
 			client_server_message=ErrorResponseBaseClientServerMessage(
 				**constructor_arguments
 			)
@@ -1133,7 +1133,7 @@ class ButtonStructure(Structure):
 			nonlocal source_uuid
 
 			time.sleep(timer_request.get_seconds())
-			self.process_response(
+			self.send_response(
 				client_server_message=TimerResponseBaseClientServerMessage(
 					client_uuid=source_uuid,
 					message=timer_request.get_message()

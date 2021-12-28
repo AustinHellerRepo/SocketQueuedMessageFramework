@@ -23,22 +23,6 @@ class ClientServerMessage(ABC):
 		pass
 
 	@classmethod
-	@abstractmethod
-	def get_client_server_message_type_class(cls) -> Type[ClientServerMessageTypeEnum]:
-		raise NotImplementedError()
-
-	@classmethod
-	@abstractmethod
-	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
-		pass
-
-	@abstractmethod
-	def to_json(self) -> Dict:
-		return {
-			"__type": self.__class__.get_client_server_message_type().value
-		}
-
-	@classmethod
 	def __map_client_server_message_class_to_client_server_message_type(cls):
 		subclasses = list(cls.__subclasses__())  # type: List[Type[ClientServerMessage]]
 		for subclass in subclasses:
@@ -72,6 +56,22 @@ class ClientServerMessage(ABC):
 	@staticmethod
 	def remove_base_keys(*, json_object: Dict):
 		json_object.pop("__type")
+
+	@classmethod
+	@abstractmethod
+	def get_client_server_message_type_class(cls) -> Type[ClientServerMessageTypeEnum]:
+		raise NotImplementedError()
+
+	@classmethod
+	@abstractmethod
+	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
+		pass
+
+	@abstractmethod
+	def to_json(self) -> Dict:
+		return {
+			"__type": self.__class__.get_client_server_message_type().value
+		}
 
 	@abstractmethod
 	def is_response(self) -> bool:
@@ -410,7 +410,7 @@ class Structure(ABC):
 			print(f"update_structure: ex: {ex}")
 			raise
 
-	def process_response(self, *, client_server_message: ClientServerMessage):
+	def send_response(self, *, client_server_message: ClientServerMessage):
 		if self.__on_response is None:
 			raise Exception(f"Must first set on_response before expecting responses to be processed by this structure. Type: {type(self)}.")
 		self.__on_response(client_server_message)
@@ -571,7 +571,7 @@ class ServerMessenger():
 
 					if client_server_message.is_structural_influence():
 						try:
-							# NOTE tested calling self.__structure.process_response directly here and found no real performance increase
+							# NOTE tested calling self.__structure.send_response directly here and found no real performance increase
 							self.__structure.update_structure(
 								structure_influence=StructureInfluence(
 									client_server_message=client_server_message,
