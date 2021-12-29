@@ -430,6 +430,10 @@ class Structure(ABC):
 			on_transition=on_transition
 		)
 
+	@abstractmethod
+	def dispose(self):
+		raise NotImplementedError()
+
 
 class StructureFactory(ABC):
 
@@ -870,6 +874,9 @@ class ServerMessenger():
 
 		if exception is not None:
 			raise exception
+
+	def dispose(self):
+		self.__structure.dispose()
 
 
 class ServerMessengerFactory():
