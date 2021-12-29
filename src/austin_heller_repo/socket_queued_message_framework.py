@@ -17,7 +17,7 @@ class ClientServerMessageTypeEnum(StringEnum):
 
 class ClientServerMessage(ABC):
 
-	__client_server_message_class_per_client_server_message_type = {}  # type: Dict[ClientServerMessageTypeEnum, Type[ClientServerMessage]]
+	__client_server_message_class_per_client_server_message_type_per_parent_class = {}  # type: Dict[Type[ClientServerMessage], Dict[ClientServerMessageTypeEnum, Type[ClientServerMessage]]]
 
 	def __init__(self):
 		pass
@@ -27,15 +27,16 @@ class ClientServerMessage(ABC):
 		subclasses = list(cls.__subclasses__())  # type: List[Type[ClientServerMessage]]
 		if not subclasses:
 			raise Exception(f"Failed to find subclasses. Main class: {cls}.")
+		ClientServerMessage.__client_server_message_class_per_client_server_message_type_per_parent_class[cls] = {}
 		for subclass in subclasses:
 			client_server_message_type = subclass.get_client_server_message_type()
-			ClientServerMessage.__client_server_message_class_per_client_server_message_type[client_server_message_type] = subclass
+			ClientServerMessage.__client_server_message_class_per_client_server_message_type_per_parent_class[cls][client_server_message_type] = subclass
 
 	@classmethod
 	def get_client_server_message_class(cls, client_server_message_type: ClientServerMessageTypeEnum):
-		if not bool(ClientServerMessage.__client_server_message_class_per_client_server_message_type):
+		if cls not in ClientServerMessage.__client_server_message_class_per_client_server_message_type_per_parent_class:
 			cls.__map_client_server_message_class_to_client_server_message_type()
-		return ClientServerMessage.__client_server_message_class_per_client_server_message_type[client_server_message_type]
+		return ClientServerMessage.__client_server_message_class_per_client_server_message_type_per_parent_class[cls][client_server_message_type]
 
 	@classmethod
 	def parse_from_json(cls, *, json_object: Dict):
