@@ -211,17 +211,19 @@ class ClientMessenger():
 
 class ClientMessengerFactory():
 
-	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage]):
+	def __init__(self, *, client_socket_factory: ClientSocketFactory, server_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], is_debug: bool = False):
 
 		self.__client_socket_factory = client_socket_factory
 		self.__server_host_pointer = server_host_pointer
 		self.__client_server_message_class = client_server_message_class
+		self.__is_debug = is_debug
 
 	def get_client_messenger(self) -> ClientMessenger:
 		return ClientMessenger(
 			client_socket_factory=self.__client_socket_factory,
 			server_host_pointer=self.__server_host_pointer,
-			client_server_message_class=self.__client_server_message_class
+			client_server_message_class=self.__client_server_message_class,
+			is_debug=self.__is_debug
 		)
 
 
