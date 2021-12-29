@@ -25,6 +25,8 @@ class ClientServerMessage(ABC):
 	@classmethod
 	def __map_client_server_message_class_to_client_server_message_type(cls):
 		subclasses = list(cls.__subclasses__())  # type: List[Type[ClientServerMessage]]
+		if not subclasses:
+			raise Exception(f"Failed to find subclasses. Main class: {cls}.")
 		for subclass in subclasses:
 			client_server_message_type = subclass.get_client_server_message_type()
 			ClientServerMessage.__client_server_message_class_per_client_server_message_type[client_server_message_type] = subclass
