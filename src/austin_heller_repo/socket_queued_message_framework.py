@@ -111,6 +111,9 @@ class ClientMessenger():
 		self.__receive_from_server_async_handle = None  # type: AsyncHandle
 		self.__is_closing = False
 
+	def set_debug(self, *, is_debug: bool):
+		self.__is_debug = is_debug
+
 	def connect_to_server(self):
 		if self.__client_socket is not None:
 			raise Exception(f"Already connected to the server messenger.")
