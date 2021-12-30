@@ -919,6 +919,9 @@ class PowerStructure(Structure):
 
 		print(f"{datetime.utcnow()}: PowerStructure: __power_button_pressed: end")
 
+	def dispose(self):
+		pass
+
 
 class ButtonStructureStateEnum(StructureStateEnum):
 	ZeroPresses = "zero_presses"
@@ -1140,6 +1143,9 @@ class ButtonStructure(Structure):
 				)
 			)
 		start_thread(timer_thread_method)
+
+	def dispose(self):
+		self.__power_structure.dispose()
 
 
 class ButtonStructureFactory(StructureFactory):

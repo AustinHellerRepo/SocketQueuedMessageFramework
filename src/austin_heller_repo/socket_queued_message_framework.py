@@ -106,6 +106,7 @@ class ClientMessenger():
 		self.__client_server_message_class = client_server_message_class
 		self.__is_debug = is_debug
 
+		self.__debug_uuid = str(uuid.uuid4())
 		self.__client_socket = None  # type: ClientSocket
 		self.__receive_from_server_callback = None  # type: Callable[[ClientServerMessage], None]
 		self.__receive_from_server_async_handle = None  # type: AsyncHandle
@@ -135,12 +136,12 @@ class ClientMessenger():
 				while not read_only_async_handle.is_cancelled():
 
 					if self.__is_debug:
-						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read start")
+						print(f"{datetime.utcnow()}: ClientMessenger: {self.__debug_uuid}: receive_from_server: read start")
 
 					client_server_message_json_string = self.__client_socket.read()
 
 					if self.__is_debug:
-						print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: read end: {client_server_message_json_string}")
+						print(f"{datetime.utcnow()}: ClientMessenger: {self.__debug_uuid}: receive_from_server: read end: {client_server_message_json_string}")
 
 					if not self.__is_closing:
 
@@ -150,23 +151,23 @@ class ClientMessenger():
 						)  # type: ClientServerMessage
 
 						if self.__is_debug:
-							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: parsed: {client_server_message.__class__.get_client_server_message_type()}")
+							print(f"{datetime.utcnow()}: ClientMessenger: {self.__debug_uuid}: receive_from_server: parsed: {client_server_message.__class__.get_client_server_message_type()}")
 
 						callback(client_server_message)
 
 						if self.__is_debug:
-							print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: callback completed")
+							print(f"{datetime.utcnow()}: ClientMessenger: {self.__debug_uuid}: receive_from_server: callback completed")
 
 					else:
 						if not read_only_async_handle.is_cancelled():
 							raise Exception(f"Unexpected closing while read_only_async_handle is not cancelled.")
 
 				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: cancelled")
+					print(f"{datetime.utcnow()}: ClientMessenger: {self.__debug_uuid}: receive_from_server: cancelled")
 
 			except Exception as ex:
 				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ClientMessenger: receive_from_server: ex: {ex}")
+					print(f"{datetime.utcnow()}: ClientMessenger: {self.__debug_uuid}: receive_from_server: ex: {ex}")
 				if self.__is_closing and isinstance(ex, ReadWriteSocketClosedException):
 					pass  # permit this exception to be ignored because this would be expected when disposing this object
 				else:
@@ -191,7 +192,7 @@ class ClientMessenger():
 	def dispose(self):
 
 		if self.__is_debug:
-			print(f"{datetime.utcnow()}: ClientMessenger: dispose: start")
+			print(f"{datetime.utcnow()}: ClientMessenger: {self.__debug_uuid}: dispose: start")
 
 		self.__is_closing = True
 
@@ -201,18 +202,18 @@ class ClientMessenger():
 		if self.__client_socket is not None:
 
 			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ClientMessenger: dispose: closing client socket")
+				print(f"{datetime.utcnow()}: ClientMessenger: {self.__debug_uuid}: dispose: closing client socket")
 
 			self.__client_socket.close()
 
 			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ClientMessenger: dispose: closed client socket")
+				print(f"{datetime.utcnow()}: ClientMessenger: {self.__debug_uuid}: dispose: closed client socket")
 
 		if self.__receive_from_server_async_handle is not None:
 			self.__receive_from_server_async_handle.get_result()
 
 		if self.__is_debug:
-			print(f"{datetime.utcnow()}: ClientMessenger: dispose: end")
+			print(f"{datetime.utcnow()}: ClientMessenger: {self.__debug_uuid}: dispose: end")
 
 
 class ClientMessengerFactory():
