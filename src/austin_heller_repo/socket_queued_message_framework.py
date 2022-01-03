@@ -116,14 +116,20 @@ class ClientMessenger():
 		self.__is_debug = is_debug
 
 	def connect_to_server(self):
-		if self.__client_socket is not None:
-			raise Exception(f"Already connected to the server messenger.")
-		else:
-			self.__client_socket = self.__client_socket_factory.get_client_socket()
-			self.__client_socket.connect_to_server(
-				ip_address=self.__server_host_pointer.get_host_address(),
-				port=self.__server_host_pointer.get_host_port()
-			)
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: ClientMessenger: connect_to_server: start")
+		try:
+			if self.__client_socket is not None:
+				raise Exception(f"Already connected to the server messenger.")
+			else:
+				self.__client_socket = self.__client_socket_factory.get_client_socket()
+				self.__client_socket.connect_to_server(
+					ip_address=self.__server_host_pointer.get_host_address(),
+					port=self.__server_host_pointer.get_host_port()
+				)
+		finally:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: ClientMessenger: connect_to_server: end")
 
 	def send_to_server(self, *, request_client_server_message: ClientServerMessage):
 		message = json.dumps(request_client_server_message.to_json())
