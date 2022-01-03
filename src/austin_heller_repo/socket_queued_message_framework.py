@@ -122,11 +122,19 @@ class ClientMessenger():
 			if self.__client_socket is not None:
 				raise Exception(f"Already connected to the server messenger.")
 			else:
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: ClientMessenger: connect_to_server: self.__client_socket_factory.get_client_socket(): start")
 				self.__client_socket = self.__client_socket_factory.get_client_socket()
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: ClientMessenger: connect_to_server: self.__client_socket_factory.get_client_socket(): end")
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: ClientMessenger: connect_to_server: connect_to_server: start: host_address: {self.__server_host_pointer.get_host_address()}. host_port: {self.__server_host_pointer.get_host_port()}.")
 				self.__client_socket.connect_to_server(
 					ip_address=self.__server_host_pointer.get_host_address(),
 					port=self.__server_host_pointer.get_host_port()
 				)
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: ClientMessenger: connect_to_server: connect_to_server: end")
 		finally:
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ClientMessenger: connect_to_server: end")

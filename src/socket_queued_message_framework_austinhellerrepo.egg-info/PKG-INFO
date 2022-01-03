@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: socket-queued-message-framework-austinhellerrepo
-Version: 0.2.7
+Version: 0.2.8
 Summary: A framework for transferring messages between clients and servers, then pushing/pulling those message via SequentialQueue
 Home-page: https://github.com/AustinHellerRepo/SocketQueuedMessageFramework
 Author: Austin Heller
