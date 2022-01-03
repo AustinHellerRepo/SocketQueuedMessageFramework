@@ -30,7 +30,10 @@ class ClientServerMessage(ABC):
 		ClientServerMessage.__client_server_message_class_per_client_server_message_type_per_parent_class[cls] = {}
 		for subclass in subclasses:
 			client_server_message_type = subclass.get_client_server_message_type()
-			ClientServerMessage.__client_server_message_class_per_client_server_message_type_per_parent_class[cls][client_server_message_type] = subclass
+			if client_server_message_type in ClientServerMessage.__client_server_message_class_per_client_server_message_type_per_parent_class[cls]:
+				raise Exception(f"Duplicate ClientServerMessageType found for both {ClientServerMessage.__client_server_message_class_per_client_server_message_type_per_parent_class[cls][client_server_message_type].__name__} and {subclass.__name__}")
+			else:
+				ClientServerMessage.__client_server_message_class_per_client_server_message_type_per_parent_class[cls][client_server_message_type] = subclass
 
 	@classmethod
 	def get_client_server_message_class(cls, client_server_message_type: ClientServerMessageTypeEnum):
