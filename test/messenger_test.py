@@ -1,6 +1,6 @@
 from __future__ import annotations
 import unittest
-from src.austin_heller_repo.socket_queued_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, StructureFactory, StructureTransitionException, StructureInfluence
+from src.austin_heller_repo.socket_queued_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, StructureFactory, StructureTransitionException, StructureInfluence, SourceTypeEnum
 from austin_heller_repo.socket import ClientSocketFactory, ServerSocketFactory, ReadWriteSocketClosedException
 from austin_heller_repo.common import HostPointer
 from austin_heller_repo.kafka_manager import KafkaSequentialQueueFactory, KafkaManager, KafkaWrapper, KafkaManagerFactory
@@ -83,15 +83,18 @@ def get_default_server_messenger() -> ServerMessenger:
 		sequential_queue_factory = SingletonMemorySequentialQueueFactory()
 
 	return ServerMessenger(
-		server_socket_factory=ServerSocketFactory(
-			to_client_packet_bytes_length=4096,
-			listening_limit_total=10,
-			accept_timeout_seconds=10.0,
-			is_debug=is_socket_debug_active
-		),
+		server_socket_factory_per_source_type={
+			BaseSourceTypeEnum.Main: ServerSocketFactory(
+				to_client_packet_bytes_length=4096,
+				listening_limit_total=10,
+				accept_timeout_seconds=10.0,
+				is_debug=is_socket_debug_active
+			)
+		},
 		sequential_queue_factory=sequential_queue_factory,
 		local_host_pointer=get_default_local_host_pointer(),
 		client_server_message_class=BaseClientServerMessage,
+		source_type_enum_class=BaseSourceTypeEnum,
 		structure_factory=ButtonStructureFactory(),
 		is_debug=is_server_messenger_debug_active
 	)
@@ -117,6 +120,10 @@ class BaseClientServerMessageTypeEnum(ClientServerMessageTypeEnum):
 	PowerButtonFailed = "power_button_failed"  # power was already overloaded when attempted
 	TimerRequest = "timer_request"  # set a timer for a later response
 	TimerResponse = "timer_response"  # a response scheduled by the timer_request
+
+
+class BaseSourceTypeEnum(SourceTypeEnum):
+	Main = "main"
 
 
 class BaseClientServerMessage(ClientServerMessage, ABC):
@@ -888,6 +895,9 @@ class PowerStructure(Structure):
 		print(f"{datetime.utcnow()}: PowerStructure: __power_button_pressed: start")
 		print(f"get state: {self.get_state()}")
 
+		if structure_influence.get_source_type() != BaseSourceTypeEnum.Main:
+			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
+
 		power_button = structure_influence.get_client_server_message()  # type: PowerButtonBaseClientServerMessage
 		source_uuid = structure_influence.get_source_uuid()
 
@@ -1054,11 +1064,19 @@ class ButtonStructure(Structure):
 		)
 
 	def __name_announced(self, structure_influence: StructureInfluence):
+
+		if structure_influence.get_source_type() != BaseSourceTypeEnum.Main:
+			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
+
 		announce = structure_influence.get_client_server_message()  # type: AnnounceBaseClientServerMessage
 		source_uuid = structure_influence.get_source_uuid()
 		self.__name_per_client_uuid[source_uuid] = announce.get_name()
 
 	def __button_pressed(self, structure_influence: StructureInfluence):
+
+		if structure_influence.get_source_type() != BaseSourceTypeEnum.Main:
+			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
+
 		source_uuid = structure_influence.get_source_uuid()
 		if source_uuid not in self.__pressed_button_client_uuids:
 			self.__pressed_button_client_uuids.append(source_uuid)
@@ -1076,6 +1094,10 @@ class ButtonStructure(Structure):
 			)
 
 	def __button_reset(self, structure_influence: StructureInfluence):
+
+		if structure_influence.get_source_type() != BaseSourceTypeEnum.Main:
+			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
+
 		for client_uuid in self.__pressed_button_client_uuids:
 			client_server_message = ResetTransmissionBaseClientServerMessage(
 				client_uuid=client_uuid
@@ -1086,9 +1108,17 @@ class ButtonStructure(Structure):
 		self.__pressed_button_client_uuids.clear()
 
 	def __three_presses_transmission_sent(self, structure_influence: StructureInfluence):
+
+		if structure_influence.get_source_type() is not None:  # NOTE: this is a structural response
+			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
+
 		self.__pressed_button_client_uuids.clear()
 
 	def __ping_requested(self, structure_influence: StructureInfluence):
+
+		if structure_influence.get_source_type() != BaseSourceTypeEnum.Main:
+			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
+
 		source_uuid = structure_influence.get_source_uuid()
 		self.send_response(
 			client_server_message=PingResponseBaseClientServerMessage(
@@ -1099,6 +1129,10 @@ class ButtonStructure(Structure):
 		self.__pings_total += 1
 
 	def __echo_requested(self, structure_influence: StructureInfluence):
+
+		if structure_influence.get_source_type() != BaseSourceTypeEnum.Main:
+			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
+
 		echo_request = structure_influence.get_client_server_message()  # type: EchoRequestBaseClientServerMessage
 		source_uuid = structure_influence.get_source_uuid()
 		message = echo_request.get_message()
@@ -1110,6 +1144,10 @@ class ButtonStructure(Structure):
 		)
 
 	def __error_requested(self, structure_influence: StructureInfluence):
+
+		if structure_influence.get_source_type() != BaseSourceTypeEnum.Main:
+			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
+
 		error_request = structure_influence.get_client_server_message()  # type: ErrorRequestBaseClientServerMessage
 		source_uuid = structure_influence.get_source_uuid()
 		constructor_arguments = error_request.get_response_constructor_arguments()
@@ -1123,11 +1161,19 @@ class ButtonStructure(Structure):
 		)
 
 	def __power_button_pressed(self, structure_influence: StructureInfluence):
+
+		if structure_influence.get_source_type() != BaseSourceTypeEnum.Main:
+			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
+
 		self.__power_structure.update_structure(
 			structure_influence=structure_influence
 		)
 
 	def __timer_requested(self, structure_influence: StructureInfluence):
+
+		if structure_influence.get_source_type() != BaseSourceTypeEnum.Main:
+			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
+
 		timer_request = structure_influence.get_client_server_message()  # type: TimerRequestBaseClientServerMessage
 		source_uuid = structure_influence.get_source_uuid()
 

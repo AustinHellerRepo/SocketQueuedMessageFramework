@@ -251,17 +251,25 @@ class ClientMessengerFactory():
 		)
 
 
+class SourceTypeEnum(StringEnum):
+	pass
+
+
 class SocketQueuedMessage():
 
-	def __init__(self, *, source_uuid: str, client_server_message: ClientServerMessage, create_datetime: datetime, message_uuid: str):
+	def __init__(self, *, source_uuid: str, source_type: SourceTypeEnum, client_server_message: ClientServerMessage, create_datetime: datetime, message_uuid: str):
 
 		self.__source_uuid = source_uuid
+		self.__source_type = source_type
 		self.__client_server_message = client_server_message
 		self.__create_datetime = create_datetime
 		self.__message_uuid = message_uuid
 
 	def get_source_uuid(self) -> str:
 		return self.__source_uuid
+
+	def get_source_type(self) -> SourceTypeEnum:
+		return self.__source_type
 
 	def get_client_server_message(self) -> ClientServerMessage:
 		return self.__client_server_message
@@ -275,15 +283,18 @@ class SocketQueuedMessage():
 	def to_json(self) -> Dict:
 		return {
 			"source_uuid": self.get_source_uuid(),
+			"source_type": self.get_source_type().value if self.get_source_type() is not None else None,
 			"message": self.get_client_server_message().to_json(),
 			"create_datetime": self.get_create_datetime().strftime("%Y-%m-%d %H:%M:%S.%f"),
 			"message_uuid": self.get_message_uuid()
 		}
 
 	@staticmethod
-	def parse_from_json(*, json_object: Dict, client_server_message_class: Type[ClientServerMessage]) -> SocketQueuedMessage:
+	def parse_from_json(*, json_object: Dict, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum]) -> SocketQueuedMessage:
+		source_type = json_object["source_type"]
 		return SocketQueuedMessage(
 			source_uuid=json_object["source_uuid"],
+			source_type=source_type_enum_class(source_type) if source_type is not None else None,
 			client_server_message=client_server_message_class.parse_from_json(
 				json_object=json_object["message"]
 			),
@@ -298,16 +309,20 @@ class StructureStateEnum(StringEnum):
 
 class StructureInfluence():
 
-	def __init__(self, *, client_server_message: ClientServerMessage, source_uuid: str):
+	def __init__(self, *, client_server_message: ClientServerMessage, source_uuid: str, source_type: SourceTypeEnum):
 
 		self.__client_server_message = client_server_message
 		self.__source_uuid = source_uuid
+		self.__source_type = source_type
 
 	def get_client_server_message(self) -> ClientServerMessage:
 		return self.__client_server_message
 
 	def get_source_uuid(self) -> str:
 		return self.__source_uuid
+
+	def get_source_type(self) -> SourceTypeEnum:
+		return self.__source_type
 
 
 class StructureTransition():
@@ -465,17 +480,18 @@ class StructureFactory(ABC):
 
 class ServerMessenger():
 
-	def __init__(self, *, server_socket_factory: ServerSocketFactory, sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], structure_factory: StructureFactory, is_debug: bool = False):
+	def __init__(self, *, server_socket_factory_per_source_type: Dict[SourceTypeEnum, ServerSocketFactory], sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], structure_factory: StructureFactory, is_debug: bool = False):
 
-		self.__server_socket_factory = server_socket_factory
+		self.__server_socket_factory_per_source_type = server_socket_factory_per_source_type
 		self.__sequential_queue_factory = sequential_queue_factory
 		self.__local_host_pointer = local_host_pointer
 		self.__client_server_message_class = client_server_message_class
+		self.__source_type_enum_class = source_type_enum_class
 		self.__structure_factory = structure_factory
 		self.__is_debug = is_debug
 
 		self.__server_messenger_uuid = str(uuid.uuid4())
-		self.__server_socket = None  # type: ServerSocket
+		self.__server_sockets = []  # type: List[ServerSocket]
 		self.__sequential_queue = None  # type: SequentialQueue
 		self.__sequential_queue_writer = None  # type: SequentialQueueWriter
 		self.__sequential_queue_reader = None  # type: SequentialQueueReader
@@ -544,7 +560,7 @@ class ServerMessenger():
 		finally:
 			pass
 
-	def __write_client_server_message_to_queue(self, read_only_async_handle: ReadOnlyAsyncHandle, client_server_message: ClientServerMessage, source_uuid: str):
+	def __write_client_server_message_to_queue(self, read_only_async_handle: ReadOnlyAsyncHandle, client_server_message: ClientServerMessage, source_uuid: str, source_type: SourceTypeEnum):
 
 		if not read_only_async_handle.is_cancelled():
 
@@ -553,6 +569,7 @@ class ServerMessenger():
 
 			socket_queue_message = SocketQueuedMessage(
 				source_uuid=source_uuid,
+				source_type=source_type,
 				client_server_message=client_server_message,
 				create_datetime=datetime.utcnow(),
 				message_uuid=str(uuid.uuid4())
@@ -575,10 +592,11 @@ class ServerMessenger():
 			read_only_async_handle=self.__on_response_from_structure_async_handle,
 			client_server_message=client_server_message,
 			is_from_queue=False,
-			source_uuid=self.__server_messenger_uuid
+			source_uuid=self.__server_messenger_uuid,
+			source_type=None  # TODO determine if this is correct
 		)
 
-	def __process_client_server_message(self, read_only_async_handle: ReadOnlyAsyncHandle, client_server_message: ClientServerMessage, is_from_queue: bool, source_uuid: str):
+	def __process_client_server_message(self, read_only_async_handle: ReadOnlyAsyncHandle, client_server_message: ClientServerMessage, is_from_queue: bool, source_uuid: str, source_type: SourceTypeEnum):
 
 		if self.__is_debug:
 			print(f"{datetime.utcnow()}: ServerMessenger: __process_client_server_message: start")
@@ -589,7 +607,8 @@ class ServerMessenger():
 					self.__write_client_server_message_to_queue(
 						read_only_async_handle=read_only_async_handle,
 						client_server_message=client_server_message,
-						source_uuid=source_uuid
+						source_uuid=source_uuid,
+						source_type=source_type
 					)
 				else:
 					if client_server_message.is_response():
@@ -605,7 +624,8 @@ class ServerMessenger():
 							self.__structure.update_structure(
 								structure_influence=StructureInfluence(
 									client_server_message=client_server_message,
-									source_uuid=source_uuid
+									source_uuid=source_uuid,
+									source_type=source_type
 								)
 							)
 						except StructureTransitionException as ex:
@@ -622,7 +642,8 @@ class ServerMessenger():
 									read_only_async_handle=read_only_async_handle,
 									client_server_message=response_client_server_message,
 									is_from_queue=False,
-									source_uuid=self.__server_messenger_uuid
+									source_uuid=self.__server_messenger_uuid,
+									source_type=None  # TODO determine if this is correct
 								)
 							else:
 								if self.__is_debug:
@@ -664,7 +685,8 @@ class ServerMessenger():
 						print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: message bytes: {message_bytes}")
 					socket_queued_message = SocketQueuedMessage.parse_from_json(
 						json_object=json.loads(message_bytes.decode()),
-						client_server_message_class=self.__client_server_message_class
+						client_server_message_class=self.__client_server_message_class,
+						source_type_enum_class=self.__source_type_enum_class
 					)
 
 					if self.__is_debug:
@@ -674,7 +696,8 @@ class ServerMessenger():
 						read_only_async_handle=read_only_async_handle,
 						client_server_message=socket_queued_message.get_client_server_message(),
 						is_from_queue=True,
-						source_uuid=socket_queued_message.get_source_uuid()
+						source_uuid=socket_queued_message.get_source_uuid(),
+						source_type=socket_queued_message.get_source_type()
 					)
 
 				else:
@@ -689,7 +712,7 @@ class ServerMessenger():
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: end")
 
-	def __process_read_message_from_client_socket(self, read_only_async_handle: ReadOnlyAsyncHandle, source_uuid: str, message: str):
+	def __process_read_message_from_client_socket(self, read_only_async_handle: ReadOnlyAsyncHandle, source_uuid: str, message: str, source_type: SourceTypeEnum):
 
 		if self.__is_debug:
 			print(f"{datetime.utcnow()}: ServerMessenger: __process_read_message_from_client_socket: start")
@@ -713,7 +736,8 @@ class ServerMessenger():
 					read_only_async_handle=read_only_async_handle,
 					client_server_message=client_server_message,
 					is_from_queue=False,
-					source_uuid=source_uuid
+					source_uuid=source_uuid,
+					source_type=source_type
 				)
 		except Exception as ex:
 			if self.__is_debug:
@@ -724,7 +748,7 @@ class ServerMessenger():
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: __process_read_message_from_client_socket: end")
 
-	def __on_accepted_client_method(self, client_socket: ClientSocket):
+	def __on_accepted_client_method(self, client_socket: ClientSocket, source_type: SourceTypeEnum):
 
 		source_uuid = str(uuid.uuid4())
 
@@ -764,7 +788,8 @@ class ServerMessenger():
 					self.__process_read_message_from_client_socket(
 						read_only_async_handle=constant_async_handle,
 						source_uuid=source_uuid,
-						message=client_server_message_json_string
+						message=client_server_message_json_string,
+						source_type=source_type
 					)
 
 					self.__process_read_async_handle_per_source_uuid_semaphore.acquire()
@@ -810,7 +835,7 @@ class ServerMessenger():
 
 	def start_receiving_from_clients(self):
 
-		if self.__server_socket is not None:
+		if self.__server_sockets:
 			raise Exception(f"Must first stop receiving from clients before starting.")
 		else:
 			self.__is_receiving_from_clients = True
@@ -822,27 +847,39 @@ class ServerMessenger():
 				timeout_seconds=0
 			)
 
-			self.__server_socket = self.__server_socket_factory.get_server_socket()
-			self.__server_socket.start_accepting_clients(
-				host_ip_address=self.__local_host_pointer.get_host_address(),
-				host_port=self.__local_host_pointer.get_host_port(),
-				on_accepted_client_method=self.__on_accepted_client_method
-			)
+			def get_on_accept_client_method(*, source_type: SourceTypeEnum):
+				def on_accept_client_method(client_socket: ClientSocket):
+					self.__on_accepted_client_method(client_socket, source_type)
+				return on_accept_client_method
+
+			for source_type, server_socket_factory in self.__server_socket_factory_per_source_type.items():
+				server_socket = server_socket_factory.get_server_socket()
+				server_socket.start_accepting_clients(
+					host_ip_address=self.__local_host_pointer.get_host_address(),
+					host_port=self.__local_host_pointer.get_host_port(),
+					on_accepted_client_method=get_on_accept_client_method(
+						source_type=source_type
+					)
+				)
+				self.__server_sockets.append(server_socket)
 
 	def stop_receiving_from_clients(self):
 
-		if self.__server_socket is None:
+		if not self.__server_sockets:
 			raise Exception(f"Must first start receiving from clients before stopping.")
 		else:
 			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__server_socket.stop_accepting_clients()")
-			self.__server_socket.stop_accepting_clients()
+				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: for server_socket in self.__server_sockets")
+			for server_socket in self.__server_sockets:
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: server_socket.stop_accepting_clients()")
+				server_socket.stop_accepting_clients()
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: server_socket.close()")
+				server_socket.close()
 			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__server_socket.close()")
-			self.__server_socket.close()
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__server_socket = None")
-			self.__server_socket = None  # type: ServerSocket
+				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__server_sockets.clear()")
+			self.__server_sockets.clear()
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__is_receiving_from_clients = False")
 			self.__is_receiving_from_clients = False
@@ -902,9 +939,9 @@ class ServerMessenger():
 
 class ServerMessengerFactory():
 
-	def __init__(self, *, server_socket_factory: ServerSocketFactory, sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], structure_factory: StructureFactory, is_debug: bool = False):
+	def __init__(self, *, server_socket_factory_per_source_type: Dict[SourceTypeEnum, ServerSocketFactory], sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], structure_factory: StructureFactory, is_debug: bool = False):
 
-		self.__server_socket_factory = server_socket_factory
+		self.__server_socket_factory_per_source_type = server_socket_factory_per_source_type
 		self.__sequential_queue_factory = sequential_queue_factory
 		self.__local_host_pointer = local_host_pointer
 		self.__client_server_message_class = client_server_message_class
@@ -913,7 +950,7 @@ class ServerMessengerFactory():
 
 	def get_server_messenger(self) -> ServerMessenger:
 		return ServerMessenger(
-			server_socket_factory=self.__server_socket_factory,
+			server_socket_factory_per_source_type=self.__server_socket_factory_per_source_type,
 			sequential_queue_factory=self.__sequential_queue_factory,
 			local_host_pointer=self.__local_host_pointer,
 			client_server_message_class=self.__client_server_message_class,
