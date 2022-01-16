@@ -393,7 +393,7 @@ class Structure(ABC):
 		self.__registered_child_structures = []  # type: List[Structure]
 		self.__registered_child_structures_semaphore = Semaphore()
 		self.__next_state = None  # type: StructureStateEnum
-		self.__transitions = {}  # type: Dict[ClientServerMessageTypeEnum, Dict[StructureStateEnum, StructureTransition]]
+		self.__transitions = {}  # type: Dict[ClientServerMessageTypeEnum, Dict[SourceTypeEnum, Dict[StructureStateEnum, StructureTransition]]]
 
 		self.__initialize()
 
@@ -433,7 +433,13 @@ class Structure(ABC):
 					structure_influence=structure_influence,
 					structure_state=self.__current_state
 				)
-			structure_transition_per_start_structure_state = self.__transitions[client_server_message_type]
+			source_type = structure_influence.get_source_type()
+			if source_type not in self.__transitions[client_server_message_type]:
+				raise StructureTransitionMissingTriggerException(
+					structure_influence=structure_influence,
+					structure_state=self.__current_state
+				)
+			structure_transition_per_start_structure_state = self.__transitions[client_server_message_type][source_type]
 			if self.__current_state not in structure_transition_per_start_structure_state:
 				raise StructureTransitionMissingStartStructureStateException(
 					structure_influence=structure_influence,
@@ -456,12 +462,14 @@ class Structure(ABC):
 			raise Exception(f"Must first set on_response before expecting responses to be processed by this structure. Type: {type(self)}.")
 		self.__on_response(client_server_message)
 
-	def add_transition(self, *, client_server_message_type: ClientServerMessageTypeEnum, start_structure_state: StructureStateEnum, end_structure_state: StructureStateEnum, on_transition: Callable[[StructureInfluence], None]):
+	def add_transition(self, *, client_server_message_type: ClientServerMessageTypeEnum, from_source_type: SourceTypeEnum, start_structure_state: StructureStateEnum, end_structure_state: StructureStateEnum, on_transition: Callable[[StructureInfluence], None]):
 		if client_server_message_type not in self.__transitions:
 			self.__transitions[client_server_message_type] = {}
-		if start_structure_state in self.__transitions[client_server_message_type]:
-			raise Exception(f"Unexpected duplicate trigger/state for transition. Trigger: {client_server_message_type}. State: {start_structure_state}.")
-		self.__transitions[client_server_message_type][start_structure_state] = StructureTransition(
+		if from_source_type not in self.__transitions[client_server_message_type]:
+			self.__transitions[client_server_message_type][from_source_type] = {}
+		if start_structure_state in self.__transitions[client_server_message_type][from_source_type]:
+			raise Exception(f"Unexpected duplicate trigger/state for transition. Trigger: {client_server_message_type}. Source: {from_source_type}. State: {start_structure_state}.")
+		self.__transitions[client_server_message_type][from_source_type][start_structure_state] = StructureTransition(
 			destination_structure_state=end_structure_state,
 			on_transition=on_transition
 		)
@@ -480,13 +488,14 @@ class StructureFactory(ABC):
 
 class ServerMessenger():
 
-	def __init__(self, *, server_socket_factory_per_source_type: Dict[SourceTypeEnum, ServerSocketFactory], sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], structure_factory: StructureFactory, is_debug: bool = False):
+	def __init__(self, *, server_socket_factory_per_source_type: Dict[SourceTypeEnum, ServerSocketFactory], sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], server_messenger_source_type: SourceTypeEnum, structure_factory: StructureFactory, is_debug: bool = False):
 
 		self.__server_socket_factory_per_source_type = server_socket_factory_per_source_type
 		self.__sequential_queue_factory = sequential_queue_factory
 		self.__local_host_pointer = local_host_pointer
 		self.__client_server_message_class = client_server_message_class
 		self.__source_type_enum_class = source_type_enum_class
+		self.__server_messenger_source_type = server_messenger_source_type
 		self.__structure_factory = structure_factory
 		self.__is_debug = is_debug
 
@@ -593,7 +602,7 @@ class ServerMessenger():
 			client_server_message=client_server_message,
 			is_from_queue=False,
 			source_uuid=self.__server_messenger_uuid,
-			source_type=None  # TODO determine if this is correct
+			source_type=self.__server_messenger_source_type
 		)
 
 	def __process_client_server_message(self, read_only_async_handle: ReadOnlyAsyncHandle, client_server_message: ClientServerMessage, is_from_queue: bool, source_uuid: str, source_type: SourceTypeEnum):
@@ -643,7 +652,7 @@ class ServerMessenger():
 									client_server_message=response_client_server_message,
 									is_from_queue=False,
 									source_uuid=self.__server_messenger_uuid,
-									source_type=None  # TODO determine if this is correct
+									source_type=self.__server_messenger_source_type
 								)
 							else:
 								if self.__is_debug:
@@ -939,12 +948,14 @@ class ServerMessenger():
 
 class ServerMessengerFactory():
 
-	def __init__(self, *, server_socket_factory_per_source_type: Dict[SourceTypeEnum, ServerSocketFactory], sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], structure_factory: StructureFactory, is_debug: bool = False):
+	def __init__(self, *, server_socket_factory_per_source_type: Dict[SourceTypeEnum, ServerSocketFactory], sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], server_messenger_source_type: SourceTypeEnum, structure_factory: StructureFactory, is_debug: bool = False):
 
 		self.__server_socket_factory_per_source_type = server_socket_factory_per_source_type
 		self.__sequential_queue_factory = sequential_queue_factory
 		self.__local_host_pointer = local_host_pointer
 		self.__client_server_message_class = client_server_message_class
+		self.__source_type_enum_class = source_type_enum_class
+		self.__server_messenger_source_type = server_messenger_source_type
 		self.__structure_factory = structure_factory
 		self.__is_debug = is_debug
 
@@ -954,6 +965,8 @@ class ServerMessengerFactory():
 			sequential_queue_factory=self.__sequential_queue_factory,
 			local_host_pointer=self.__local_host_pointer,
 			client_server_message_class=self.__client_server_message_class,
+			source_type_enum_class=self.__source_type_enum_class,
+			server_messenger_source_type=self.__server_messenger_source_type,
 			structure_factory=self.__structure_factory,
 			is_debug=self.__is_debug
 		)

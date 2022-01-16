@@ -95,6 +95,7 @@ def get_default_server_messenger() -> ServerMessenger:
 		local_host_pointer=get_default_local_host_pointer(),
 		client_server_message_class=BaseClientServerMessage,
 		source_type_enum_class=BaseSourceTypeEnum,
+		server_messenger_source_type=BaseSourceTypeEnum.ServerMessenger,
 		structure_factory=ButtonStructureFactory(),
 		is_debug=is_server_messenger_debug_active
 	)
@@ -124,6 +125,7 @@ class BaseClientServerMessageTypeEnum(ClientServerMessageTypeEnum):
 
 class BaseSourceTypeEnum(SourceTypeEnum):
 	Main = "main"
+	ServerMessenger = "server_messenger"
 
 
 class BaseClientServerMessage(ClientServerMessage, ABC):
@@ -866,6 +868,7 @@ class PowerStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=PowerStructureStateEnum.Underpowered,
 			end_structure_state=PowerStructureStateEnum.Underpowered,
 			on_transition=self.__power_button_pressed
@@ -873,6 +876,7 @@ class PowerStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=PowerStructureStateEnum.Powered,
 			end_structure_state=PowerStructureStateEnum.Powered,
 			on_transition=self.__power_button_pressed
@@ -960,6 +964,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.Announce,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__name_announced
@@ -967,6 +972,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.PressButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			end_structure_state=ButtonStructureStateEnum.OnePress,
 			on_transition=self.__button_pressed
@@ -974,6 +980,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.PressButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.OnePress,
 			end_structure_state=ButtonStructureStateEnum.TwoPresses,
 			on_transition=self.__button_pressed
@@ -981,6 +988,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.PressButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.TwoPresses,
 			end_structure_state=ButtonStructureStateEnum.ThreePresses,
 			on_transition=self.__button_pressed
@@ -988,6 +996,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.ResetButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__button_reset
@@ -995,6 +1004,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.ResetButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.OnePress,
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__button_reset
@@ -1002,6 +1012,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.ResetButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.TwoPresses,
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__button_reset
@@ -1009,6 +1020,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.ThreePressesTransmission,
+			from_source_type=BaseSourceTypeEnum.ServerMessenger,
 			start_structure_state=ButtonStructureStateEnum.ThreePresses,
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__three_presses_transmission_sent
@@ -1016,6 +1028,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.PingRequest,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__ping_requested
@@ -1023,6 +1036,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.EchoRequest,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__echo_requested
@@ -1030,6 +1044,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.ErrorRequest,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__error_requested
@@ -1037,6 +1052,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__power_button_pressed
@@ -1044,6 +1060,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.OnePress,
 			end_structure_state=ButtonStructureStateEnum.OnePress,
 			on_transition=self.__power_button_pressed
@@ -1051,6 +1068,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.TwoPresses,
 			end_structure_state=ButtonStructureStateEnum.TwoPresses,
 			on_transition=self.__power_button_pressed
@@ -1058,6 +1076,7 @@ class ButtonStructure(Structure):
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.TimerRequest,
+			from_source_type=BaseSourceTypeEnum.Main,
 			start_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__timer_requested
@@ -1109,7 +1128,7 @@ class ButtonStructure(Structure):
 
 	def __three_presses_transmission_sent(self, structure_influence: StructureInfluence):
 
-		if structure_influence.get_source_type() is not None:  # NOTE: this is a structural response
+		if structure_influence.get_source_type() != BaseSourceTypeEnum.ServerMessenger:
 			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
 
 		self.__pressed_button_client_uuids.clear()
