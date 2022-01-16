@@ -488,11 +488,10 @@ class StructureFactory(ABC):
 
 class ServerMessenger():
 
-	def __init__(self, *, server_socket_factory_per_source_type: Dict[SourceTypeEnum, ServerSocketFactory], sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], server_messenger_source_type: SourceTypeEnum, structure_factory: StructureFactory, is_debug: bool = False):
+	def __init__(self, *, server_socket_factory_and_local_host_pointer_per_source_type: Dict[SourceTypeEnum, Tuple[ServerSocketFactory, HostPointer]], sequential_queue_factory: SequentialQueueFactory, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], server_messenger_source_type: SourceTypeEnum, structure_factory: StructureFactory, is_debug: bool = False):
 
-		self.__server_socket_factory_per_source_type = server_socket_factory_per_source_type
+		self.__server_socket_factory_and_local_host_pointer_per_source_type = server_socket_factory_and_local_host_pointer_per_source_type
 		self.__sequential_queue_factory = sequential_queue_factory
-		self.__local_host_pointer = local_host_pointer
 		self.__client_server_message_class = client_server_message_class
 		self.__source_type_enum_class = source_type_enum_class
 		self.__server_messenger_source_type = server_messenger_source_type
@@ -861,11 +860,11 @@ class ServerMessenger():
 					self.__on_accepted_client_method(client_socket, source_type)
 				return on_accept_client_method
 
-			for source_type, server_socket_factory in self.__server_socket_factory_per_source_type.items():
+			for source_type, (server_socket_factory, local_host_pointer) in self.__server_socket_factory_and_local_host_pointer_per_source_type.items():
 				server_socket = server_socket_factory.get_server_socket()
 				server_socket.start_accepting_clients(
-					host_ip_address=self.__local_host_pointer.get_host_address(),
-					host_port=self.__local_host_pointer.get_host_port(),
+					host_ip_address=local_host_pointer.get_host_address(),
+					host_port=local_host_pointer.get_host_port(),
 					on_accepted_client_method=get_on_accept_client_method(
 						source_type=source_type
 					)
@@ -948,11 +947,10 @@ class ServerMessenger():
 
 class ServerMessengerFactory():
 
-	def __init__(self, *, server_socket_factory_per_source_type: Dict[SourceTypeEnum, ServerSocketFactory], sequential_queue_factory: SequentialQueueFactory, local_host_pointer: HostPointer, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], server_messenger_source_type: SourceTypeEnum, structure_factory: StructureFactory, is_debug: bool = False):
+	def __init__(self, *, server_socket_factory_and_local_host_pointer_per_source_type: Dict[SourceTypeEnum, Tuple[ServerSocketFactory, HostPointer]], sequential_queue_factory: SequentialQueueFactory, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], server_messenger_source_type: SourceTypeEnum, structure_factory: StructureFactory, is_debug: bool = False):
 
-		self.__server_socket_factory_per_source_type = server_socket_factory_per_source_type
+		self.__server_socket_factory_and_local_host_pointer_per_source_type = server_socket_factory_and_local_host_pointer_per_source_type
 		self.__sequential_queue_factory = sequential_queue_factory
-		self.__local_host_pointer = local_host_pointer
 		self.__client_server_message_class = client_server_message_class
 		self.__source_type_enum_class = source_type_enum_class
 		self.__server_messenger_source_type = server_messenger_source_type
@@ -961,9 +959,8 @@ class ServerMessengerFactory():
 
 	def get_server_messenger(self) -> ServerMessenger:
 		return ServerMessenger(
-			server_socket_factory_per_source_type=self.__server_socket_factory_per_source_type,
+			server_socket_factory_and_local_host_pointer_per_source_type=self.__server_socket_factory_and_local_host_pointer_per_source_type,
 			sequential_queue_factory=self.__sequential_queue_factory,
-			local_host_pointer=self.__local_host_pointer,
 			client_server_message_class=self.__client_server_message_class,
 			source_type_enum_class=self.__source_type_enum_class,
 			server_messenger_source_type=self.__server_messenger_source_type,

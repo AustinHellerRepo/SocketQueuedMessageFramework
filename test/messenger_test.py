@@ -83,16 +83,18 @@ def get_default_server_messenger() -> ServerMessenger:
 		sequential_queue_factory = SingletonMemorySequentialQueueFactory()
 
 	return ServerMessenger(
-		server_socket_factory_per_source_type={
-			BaseSourceTypeEnum.Main: ServerSocketFactory(
-				to_client_packet_bytes_length=4096,
-				listening_limit_total=10,
-				accept_timeout_seconds=10.0,
-				is_debug=is_socket_debug_active
+		server_socket_factory_and_local_host_pointer_per_source_type={
+			BaseSourceTypeEnum.Main: (
+				ServerSocketFactory(
+					to_client_packet_bytes_length=4096,
+					listening_limit_total=10,
+					accept_timeout_seconds=10.0,
+					is_debug=is_socket_debug_active
+				),
+				get_default_local_host_pointer()
 			)
 		},
 		sequential_queue_factory=sequential_queue_factory,
-		local_host_pointer=get_default_local_host_pointer(),
 		client_server_message_class=BaseClientServerMessage,
 		source_type_enum_class=BaseSourceTypeEnum,
 		server_messenger_source_type=BaseSourceTypeEnum.ServerMessenger,
