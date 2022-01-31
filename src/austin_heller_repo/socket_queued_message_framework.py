@@ -142,8 +142,8 @@ class ClientMessenger():
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ClientMessenger: connect_to_server: end")
 
-	def send_to_server(self, *, request_client_server_message: ClientServerMessage):
-		message = json.dumps(request_client_server_message.to_json())
+	def send_to_server(self, *, client_server_message: ClientServerMessage):
+		message = json.dumps(client_server_message.to_json())
 		self.__client_socket.write(message)
 
 	def __receive_from_server(self, read_only_async_handle: ReadOnlyAsyncHandle, callback: Callable[[ClientServerMessage], None], on_exception: Callable[[Exception], None]):
@@ -369,6 +369,18 @@ class StructureTransitionMissingTriggerException(StructureTransitionException):
 		return str(type(self))
 
 
+class StructureTransitionMissingSourceTypeException(StructureTransitionException):
+
+	def __init__(self, *, structure_influence: StructureInfluence, structure_state: StructureStateEnum):
+		super().__init__(
+			structure_influence=structure_influence,
+			structure_state=structure_state
+		)
+
+	def __str__(self):
+		return str(type(self))
+
+
 class StructureTransitionMissingStartStructureStateException(StructureTransitionException):
 
 	def __init__(self, *, structure_influence: StructureInfluence, structure_state: StructureStateEnum):
@@ -388,12 +400,16 @@ class Structure(ABC):
 		self.__states = states
 		self.__initial_state = initial_state
 
+		self.__found_exception = None  # type: Exception
 		self.__current_state = None  # type: StructureStateEnum
 		self.__on_response = None  # type: Callable[[ClientServerMessage], None]
 		self.__registered_child_structures = []  # type: List[Structure]
 		self.__registered_child_structures_semaphore = Semaphore()
 		self.__next_state = None  # type: StructureStateEnum
 		self.__transitions = {}  # type: Dict[ClientServerMessageTypeEnum, Dict[SourceTypeEnum, Dict[StructureStateEnum, StructureTransition]]]
+		self.__bound_client_messenger_per_source_uuid = {}  # type: Dict[str, ClientMessenger]
+		self.__bound_client_messenger_per_source_uuid_semaphore = Semaphore()
+		self.__update_structure_semaphore = Semaphore()
 
 		self.__initialize()
 
@@ -425,7 +441,43 @@ class Structure(ABC):
 		self.__registered_child_structures.append(structure)
 		self.__registered_child_structures_semaphore.release()
 
+	def bind_client_messenger(self, *, client_messenger_factory: ClientMessengerFactory, source_type: SourceTypeEnum) -> ClientMessenger:
+
+		source_uuid = str(uuid.uuid4())
+		def callback(client_server_message: ClientServerMessage):
+			nonlocal source_uuid
+			print(f"{datetime.utcnow()}: Structure: bind_client_messenger: callback: start")
+			structure_influence = StructureInfluence(
+				client_server_message=client_server_message,
+				source_uuid=source_uuid,
+				source_type=source_type
+			)
+			self.update_structure(
+				structure_influence=structure_influence
+			)
+			print(f"{datetime.utcnow()}: Structure: bind_client_messenger: callback: end")
+
+		def on_exception(exception: Exception):
+			print(f"{datetime.utcnow()}: Structure: bind_client_messenger: on_exception: exception: {exception}")
+			if self.__found_exception is None:
+				self.__found_exception = exception
+
+		client_messenger = client_messenger_factory.get_client_messenger()
+
+		self.__bound_client_messenger_per_source_uuid_semaphore.acquire()
+		self.__bound_client_messenger_per_source_uuid[source_uuid] = client_messenger
+		self.__bound_client_messenger_per_source_uuid_semaphore.release()
+
+		client_messenger.connect_to_server()
+		client_messenger.receive_from_server(
+			callback=callback,
+			on_exception=on_exception
+		)
+
+		return client_messenger
+
 	def update_structure(self, *, structure_influence: StructureInfluence):
+		self.__update_structure_semaphore.acquire()
 		try:
 			client_server_message_type = structure_influence.get_client_server_message().__class__.get_client_server_message_type()
 			if client_server_message_type not in self.__transitions:
@@ -435,7 +487,7 @@ class Structure(ABC):
 				)
 			source_type = structure_influence.get_source_type()
 			if source_type not in self.__transitions[client_server_message_type]:
-				raise StructureTransitionMissingTriggerException(
+				raise StructureTransitionMissingSourceTypeException(
 					structure_influence=structure_influence,
 					structure_state=self.__current_state
 				)
@@ -456,11 +508,20 @@ class Structure(ABC):
 		except Exception as ex:
 			print(f"update_structure: ex: {ex}")
 			raise
+		finally:
+			self.__update_structure_semaphore.release()
 
 	def send_response(self, *, client_server_message: ClientServerMessage):
-		if self.__on_response is None:
-			raise Exception(f"Must first set on_response before expecting responses to be processed by this structure. Type: {type(self)}.")
-		self.__on_response(client_server_message)
+		print(f"{datetime.utcnow()}: Structure: send_response: client_server_message: {client_server_message}")
+		bound_client_messenger = self.__bound_client_messenger_per_source_uuid.get(client_server_message.get_destination_uuid(), None)
+		if bound_client_messenger is None:
+			if self.__on_response is None:
+				raise Exception(f"Must first set on_response before expecting responses to be processed by this structure. Type: {type(self)}.")
+			self.__on_response(client_server_message)
+		else:
+			bound_client_messenger.send_to_server(
+				client_server_message=client_server_message
+			)
 
 	def add_transition(self, *, client_server_message_type: ClientServerMessageTypeEnum, from_source_type: SourceTypeEnum, start_structure_state: StructureStateEnum, end_structure_state: StructureStateEnum, on_transition: Callable[[StructureInfluence], None]):
 		if client_server_message_type not in self.__transitions:

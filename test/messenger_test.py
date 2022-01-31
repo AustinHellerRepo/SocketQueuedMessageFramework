@@ -1328,7 +1328,7 @@ class MessengerTest(unittest.TestCase):
 		client_messenger.connect_to_server()
 
 		client_messenger.send_to_server(
-			request_client_server_message=HelloWorldBaseClientServerMessage()
+			client_server_message=HelloWorldBaseClientServerMessage()
 		)
 
 		time.sleep(1)
@@ -1354,7 +1354,7 @@ class MessengerTest(unittest.TestCase):
 		client_messenger.connect_to_server()
 
 		client_messenger.send_to_server(
-			request_client_server_message=HelloWorldBaseClientServerMessage()
+			client_server_message=HelloWorldBaseClientServerMessage()
 		)
 
 		time.sleep(1)
@@ -1398,7 +1398,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		client_messenger.send_to_server(
-			request_client_server_message=HelloWorldBaseClientServerMessage()
+			client_server_message=HelloWorldBaseClientServerMessage()
 		)
 
 		time.sleep(1)
@@ -1445,7 +1445,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		client_messenger.send_to_server(
-			request_client_server_message=HelloWorldBaseClientServerMessage()
+			client_server_message=HelloWorldBaseClientServerMessage()
 		)
 
 		time.sleep(1)
@@ -1495,7 +1495,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="Test Name"
 			)
 		)
@@ -1503,19 +1503,19 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first press")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: sending second press")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: sending third press")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: waiting for messages")
@@ -1574,7 +1574,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="Test Name"
 			)
 		)
@@ -1582,19 +1582,19 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first press")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: sending second press")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: sending reset")
 
 		client_messenger.send_to_server(
-			request_client_server_message=ResetButtonBaseClientServerMessage()
+			client_server_message=ResetButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: waiting for messages")
@@ -1672,7 +1672,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		first_client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -1680,7 +1680,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending second announcement")
 
 		second_client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="Second"
 			)
 		)
@@ -1690,19 +1690,19 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first press")
 
 		first_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: sending second press")
 
 		second_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: sending reset")
 
 		first_client_messenger.send_to_server(
-			request_client_server_message=ResetButtonBaseClientServerMessage()
+			client_server_message=ResetButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: waiting for messages")
@@ -1800,7 +1800,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		first_client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -1808,7 +1808,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending second announcement")
 
 		second_client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="Second"
 			)
 		)
@@ -1816,7 +1816,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending third announcement")
 
 		third_client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="Third"
 			)
 		)
@@ -1826,7 +1826,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first press")
 
 		first_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		time.sleep(0.1)
@@ -1834,7 +1834,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending second press")
 
 		second_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		time.sleep(0.1)
@@ -1842,7 +1842,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending reset")
 
 		third_client_messenger.send_to_server(
-			request_client_server_message=ResetButtonBaseClientServerMessage()
+			client_server_message=ResetButtonBaseClientServerMessage()
 		)
 
 		time.sleep(0.1)
@@ -1928,7 +1928,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		first_client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -1938,7 +1938,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending second announcement")
 
 		second_client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="Second"
 			)
 		)
@@ -1948,7 +1948,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first press")
 
 		first_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		time.sleep(1)
@@ -1962,7 +1962,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending reset")
 
 		second_client_messenger.send_to_server(
-			request_client_server_message=ResetButtonBaseClientServerMessage()
+			client_server_message=ResetButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: waiting for messages")
@@ -2027,7 +2027,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -2037,7 +2037,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending ping")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PingRequestBaseClientServerMessage()
+			client_server_message=PingRequestBaseClientServerMessage()
 		)
 
 		time.sleep(0.1)
@@ -2114,7 +2114,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -2134,15 +2134,15 @@ class MessengerTest(unittest.TestCase):
 
 			sent_first_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=PingRequestBaseClientServerMessage()
+				client_server_message=PingRequestBaseClientServerMessage()
 			)
 			for index in range(expected_pings_total - 2):
 				client_messenger.send_to_server(
-					request_client_server_message=PingRequestBaseClientServerMessage()
+					client_server_message=PingRequestBaseClientServerMessage()
 				)
 			sent_last_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=PingRequestBaseClientServerMessage()
+				client_server_message=PingRequestBaseClientServerMessage()
 			)
 
 		ping_thread = start_thread(ping_thread_method)
@@ -2245,22 +2245,22 @@ class MessengerTest(unittest.TestCase):
 			print(f"{datetime.utcnow()}: sending first announcement")
 
 			client_messenger.send_to_server(
-				request_client_server_message=AnnounceBaseClientServerMessage(
+				client_server_message=AnnounceBaseClientServerMessage(
 					name="First"
 				)
 			)
 
 			sent_first_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=PingRequestBaseClientServerMessage()
+				client_server_message=PingRequestBaseClientServerMessage()
 			)
 			for index in range(expected_pings_total - 2):
 				client_messenger.send_to_server(
-					request_client_server_message=PingRequestBaseClientServerMessage()
+					client_server_message=PingRequestBaseClientServerMessage()
 				)
 			sent_last_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=PingRequestBaseClientServerMessage()
+				client_server_message=PingRequestBaseClientServerMessage()
 			)
 
 			print(f"{datetime.utcnow()}: waiting for messages")
@@ -2371,7 +2371,7 @@ class MessengerTest(unittest.TestCase):
 			print(f"{datetime.utcnow()}: sending first announcement")
 
 			client_messenger.send_to_server(
-				request_client_server_message=AnnounceBaseClientServerMessage(
+				client_server_message=AnnounceBaseClientServerMessage(
 					name="First"
 				)
 			)
@@ -2380,18 +2380,18 @@ class MessengerTest(unittest.TestCase):
 
 			sent_datetimes.append(datetime.utcnow())
 			client_messenger.send_to_server(
-				request_client_server_message=PingRequestBaseClientServerMessage()
+				client_server_message=PingRequestBaseClientServerMessage()
 			)
 			time.sleep(delay_between_sending_message_seconds)
 			for index in range(expected_pings_total - 2):
 				sent_datetimes.append(datetime.utcnow())
 				client_messenger.send_to_server(
-					request_client_server_message=PingRequestBaseClientServerMessage()
+					client_server_message=PingRequestBaseClientServerMessage()
 				)
 				time.sleep(delay_between_sending_message_seconds)
 			sent_datetimes.append(datetime.utcnow())
 			client_messenger.send_to_server(
-				request_client_server_message=PingRequestBaseClientServerMessage()
+				client_server_message=PingRequestBaseClientServerMessage()
 			)
 
 			print(f"{datetime.utcnow()}: waiting for messages")
@@ -2508,28 +2508,28 @@ class MessengerTest(unittest.TestCase):
 			print(f"{datetime.utcnow()}: sending first announcement")
 
 			client_messenger.send_to_server(
-				request_client_server_message=AnnounceBaseClientServerMessage(
+				client_server_message=AnnounceBaseClientServerMessage(
 					name="First"
 				)
 			)
 
 			sent_first_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=message_contents,
 					is_ordered=True
 				)
 			)
 			for index in range(expected_pings_total - 2):
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message_contents,
 						is_ordered=True
 					)
 				)
 			sent_last_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=message_contents,
 					is_ordered=True
 				)
@@ -2639,28 +2639,28 @@ class MessengerTest(unittest.TestCase):
 			print(f"{datetime.utcnow()}: sending first announcement")
 
 			client_messenger.send_to_server(
-				request_client_server_message=AnnounceBaseClientServerMessage(
+				client_server_message=AnnounceBaseClientServerMessage(
 					name="First"
 				)
 			)
 
 			sent_first_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=message_contents,
 					is_ordered=True
 				)
 			)
 			for index in range(expected_pings_total - 2):
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message_contents,
 						is_ordered=True
 					)
 				)
 			sent_last_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=message_contents,
 					is_ordered=True
 				)
@@ -2770,28 +2770,28 @@ class MessengerTest(unittest.TestCase):
 			print(f"{datetime.utcnow()}: sending first announcement")
 
 			client_messenger.send_to_server(
-				request_client_server_message=AnnounceBaseClientServerMessage(
+				client_server_message=AnnounceBaseClientServerMessage(
 					name="First"
 				)
 			)
 
 			sent_first_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=message_contents,
 					is_ordered=True
 				)
 			)
 			for index in range(expected_pings_total - 2):
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message_contents,
 						is_ordered=True
 					)
 				)
 			sent_last_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=message_contents,
 					is_ordered=True
 				)
@@ -2901,28 +2901,28 @@ class MessengerTest(unittest.TestCase):
 			print(f"{datetime.utcnow()}: sending first announcement")
 
 			client_messenger.send_to_server(
-				request_client_server_message=AnnounceBaseClientServerMessage(
+				client_server_message=AnnounceBaseClientServerMessage(
 					name="First"
 				)
 			)
 
 			sent_first_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=message_contents,
 					is_ordered=True
 				)
 			)
 			for index in range(expected_pings_total - 2):
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message_contents,
 						is_ordered=True
 					)
 				)
 			sent_last_ping_datetime = datetime.utcnow()
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=message_contents,
 					is_ordered=True
 				)
@@ -3010,7 +3010,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending press")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		time.sleep(1)
@@ -3018,7 +3018,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="Test Name"
 			)
 		)
@@ -3080,7 +3080,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending press")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		time.sleep(1)
@@ -3088,7 +3088,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="Test Name"
 			)
 		)
@@ -3148,7 +3148,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -3158,7 +3158,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: first power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=False
 			)
 		)
@@ -3170,7 +3170,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: second power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=False
 			)
 		)
@@ -3182,7 +3182,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: third power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=False
 			)
 		)
@@ -3194,7 +3194,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: fourth power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=False
 			)
 		)
@@ -3282,7 +3282,7 @@ class MessengerTest(unittest.TestCase):
 
 		for message_index in range(messages_total):
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=str(message_index),
 					is_ordered=True
 				)
@@ -3371,7 +3371,7 @@ class MessengerTest(unittest.TestCase):
 		client_messengers_index = 0
 		message_index = 0
 		client_messengers[client_messengers_index].send_to_server(
-			request_client_server_message=EchoRequestBaseClientServerMessage(
+			client_server_message=EchoRequestBaseClientServerMessage(
 				message=str(message_index),
 				is_ordered=True
 			)
@@ -3383,7 +3383,7 @@ class MessengerTest(unittest.TestCase):
 			if client_messengers_index == len(client_messengers):
 				client_messengers_index = 0
 			client_messengers[client_messengers_index].send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=str(message_index),
 					is_ordered=True
 				)
@@ -3475,7 +3475,7 @@ class MessengerTest(unittest.TestCase):
 
 		for message_index in range(messages_total):
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=str(message_index),
 					is_ordered=True
 				)
@@ -3527,7 +3527,7 @@ class MessengerTest(unittest.TestCase):
 		expected_exception = f"test exception: {uuid.uuid4()}"
 
 		client_messenger.send_to_server(
-			request_client_server_message=ErrorRequestBaseClientServerMessage(
+			client_server_message=ErrorRequestBaseClientServerMessage(
 				is_constructor_exception_to_set=expected_exception
 			)
 		)
@@ -3585,7 +3585,7 @@ class MessengerTest(unittest.TestCase):
 
 		with self.assertRaises(Exception) as assertedException:
 			client_messenger.send_to_server(
-				request_client_server_message=ErrorRequestBaseClientServerMessage(
+				client_server_message=ErrorRequestBaseClientServerMessage(
 					to_json_exception=expected_exception
 				)
 			)
@@ -3639,7 +3639,7 @@ class MessengerTest(unittest.TestCase):
 		expected_exception = f"test exception: {uuid.uuid4()}"
 
 		client_messenger.send_to_server(
-			request_client_server_message=ErrorRequestBaseClientServerMessage(
+			client_server_message=ErrorRequestBaseClientServerMessage(
 				is_response_exception=expected_exception
 			)
 		)
@@ -3647,7 +3647,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		client_messenger.send_to_server(
-			request_client_server_message=PingRequestBaseClientServerMessage()
+			client_server_message=PingRequestBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: waiting for messages")
@@ -3706,7 +3706,7 @@ class MessengerTest(unittest.TestCase):
 		expected_exception = f"test exception: {uuid.uuid4()}"
 
 		client_messenger.send_to_server(
-			request_client_server_message=ErrorRequestBaseClientServerMessage(
+			client_server_message=ErrorRequestBaseClientServerMessage(
 				get_destination_uuid_exception=expected_exception
 			)
 		)
@@ -3714,7 +3714,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		client_messenger.send_to_server(
-			request_client_server_message=PingRequestBaseClientServerMessage()
+			client_server_message=PingRequestBaseClientServerMessage()
 		)
 
 		time.sleep(5)
@@ -3768,7 +3768,7 @@ class MessengerTest(unittest.TestCase):
 		expected_exception = f"test exception: {uuid.uuid4()}"
 
 		client_messenger.send_to_server(
-			request_client_server_message=ErrorRequestBaseClientServerMessage(
+			client_server_message=ErrorRequestBaseClientServerMessage(
 				is_structural_influence_exception=expected_exception
 			)
 		)
@@ -3776,7 +3776,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		client_messenger.send_to_server(
-			request_client_server_message=PingRequestBaseClientServerMessage()
+			client_server_message=PingRequestBaseClientServerMessage()
 		)
 
 		time.sleep(5)
@@ -3833,7 +3833,7 @@ class MessengerTest(unittest.TestCase):
 		expected_exception = f"test exception: {uuid.uuid4()}"
 
 		client_messenger.send_to_server(
-			request_client_server_message=ErrorRequestBaseClientServerMessage(
+			client_server_message=ErrorRequestBaseClientServerMessage(
 				is_ordered_exception=expected_exception
 			)
 		)
@@ -3842,7 +3842,7 @@ class MessengerTest(unittest.TestCase):
 
 		with self.assertRaises(ReadWriteSocketClosedException):
 			client_messenger.send_to_server(
-				request_client_server_message=PingRequestBaseClientServerMessage()
+				client_server_message=PingRequestBaseClientServerMessage()
 			)
 
 		time.sleep(5)
@@ -3898,7 +3898,7 @@ class MessengerTest(unittest.TestCase):
 		expected_exception = f"test exception: {uuid.uuid4()}"
 
 		client_messenger.send_to_server(
-			request_client_server_message=ErrorRequestBaseClientServerMessage(
+			client_server_message=ErrorRequestBaseClientServerMessage(
 				is_ordered_exception=expected_exception
 			)
 		)
@@ -3958,7 +3958,7 @@ class MessengerTest(unittest.TestCase):
 		expected_exception = f"test exception: {uuid.uuid4()}"
 
 		client_messenger.send_to_server(
-			request_client_server_message=ErrorRequestBaseClientServerMessage(
+			client_server_message=ErrorRequestBaseClientServerMessage(
 				get_structural_error_client_server_message_response_exception=expected_exception
 			)
 		)
@@ -3966,7 +3966,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		client_messenger.send_to_server(
-			request_client_server_message=PingRequestBaseClientServerMessage()
+			client_server_message=PingRequestBaseClientServerMessage()
 		)
 
 		time.sleep(5)
@@ -4020,13 +4020,13 @@ class MessengerTest(unittest.TestCase):
 		expected_exception = f"test exception: {uuid.uuid4()}"
 
 		client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		time.sleep(1)
 
 		client_messenger.send_to_server(
-			request_client_server_message=ErrorRequestBaseClientServerMessage(
+			client_server_message=ErrorRequestBaseClientServerMessage(
 				get_structural_error_client_server_message_response_exception=expected_exception
 			)
 		)
@@ -4034,7 +4034,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		client_messenger.send_to_server(
-			request_client_server_message=PingRequestBaseClientServerMessage()
+			client_server_message=PingRequestBaseClientServerMessage()
 		)
 
 		time.sleep(5)
@@ -4091,7 +4091,7 @@ class MessengerTest(unittest.TestCase):
 		expected_exception = f"test exception: {uuid.uuid4()}"
 
 		client_messenger.send_to_server(
-			request_client_server_message=ErrorRequestBaseClientServerMessage(
+			client_server_message=ErrorRequestBaseClientServerMessage(
 				response_constructor_arguments={
 					"is_constructor_exception_to_set": expected_exception
 				}
@@ -4101,7 +4101,7 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		client_messenger.send_to_server(
-			request_client_server_message=PingRequestBaseClientServerMessage()
+			client_server_message=PingRequestBaseClientServerMessage()
 		)
 
 		time.sleep(5)
@@ -4203,7 +4203,7 @@ class MessengerTest(unittest.TestCase):
 		for index in range(messages_total):
 			subset_index = int(index / message_subset_length) % 2
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=str(index),
 					is_ordered=(subset_index == 0)
 				)
@@ -4307,7 +4307,7 @@ class MessengerTest(unittest.TestCase):
 		for index in range(messages_total):
 			subset_index = int(index / message_subset_length) % 2
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=str(index),
 					is_ordered=(subset_index == 0)
 				)
@@ -4411,7 +4411,7 @@ class MessengerTest(unittest.TestCase):
 		for index in range(messages_total):
 			subset_index = int(index / message_subset_length) % 2
 			client_messenger.send_to_server(
-				request_client_server_message=EchoRequestBaseClientServerMessage(
+				client_server_message=EchoRequestBaseClientServerMessage(
 					message=str(index),
 					is_ordered=(subset_index == 0)
 				)
@@ -4466,7 +4466,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -4474,7 +4474,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first power")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=False
 			)
 		)
@@ -4482,7 +4482,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending reset")
 
 		client_messenger.send_to_server(
-			request_client_server_message=ResetButtonBaseClientServerMessage()
+			client_server_message=ResetButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: waiting for messages")
@@ -4539,7 +4539,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -4549,7 +4549,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: first power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=False
 			)
 		)
@@ -4561,7 +4561,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: second power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=False
 			)
 		)
@@ -4573,7 +4573,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: third power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=False
 			)
 		)
@@ -4585,7 +4585,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: fourth power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=False
 			)
 		)
@@ -4649,7 +4649,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -4659,7 +4659,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: first power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -4671,7 +4671,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: second power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -4700,7 +4700,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: first press: start")
 
 		press_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: first press: end")
@@ -4710,7 +4710,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: second press: start")
 
 		press_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: second press: end")
@@ -4720,7 +4720,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: third press: start")
 
 		press_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: third press: end")
@@ -4730,7 +4730,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: third power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -4801,7 +4801,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -4811,7 +4811,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: first power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -4823,7 +4823,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: second power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -4835,7 +4835,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: third power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -4864,7 +4864,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: first press: start")
 
 		press_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: first press: end")
@@ -4874,7 +4874,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: second press: start")
 
 		press_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: second press: end")
@@ -4884,7 +4884,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: third press: start")
 
 		press_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: third press: end")
@@ -4953,7 +4953,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -4963,7 +4963,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: first power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -4975,7 +4975,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: second power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -4987,7 +4987,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: third power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -4999,7 +4999,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: fourth power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -5028,7 +5028,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: first press: start")
 
 		press_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: first press: end")
@@ -5038,7 +5038,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: second press: start")
 
 		press_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: second press: end")
@@ -5048,7 +5048,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: third press: start")
 
 		press_client_messenger.send_to_server(
-			request_client_server_message=PressButtonBaseClientServerMessage()
+			client_server_message=PressButtonBaseClientServerMessage()
 		)
 
 		print(f"{datetime.utcnow()}: third press: end")
@@ -5117,7 +5117,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending first announcement")
 
 		client_messenger.send_to_server(
-			request_client_server_message=AnnounceBaseClientServerMessage(
+			client_server_message=AnnounceBaseClientServerMessage(
 				name="First"
 			)
 		)
@@ -5127,7 +5127,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: first power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -5139,7 +5139,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: second power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -5151,7 +5151,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: third power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -5163,7 +5163,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: fourth power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -5175,7 +5175,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: fifth power: start")
 
 		client_messenger.send_to_server(
-			request_client_server_message=PowerButtonBaseClientServerMessage(
+			client_server_message=PowerButtonBaseClientServerMessage(
 				is_anonymous=True
 			)
 		)
@@ -5246,7 +5246,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending message")
 
 		client_messenger.send_to_server(
-			request_client_server_message=TimerRequestBaseClientServerMessage(
+			client_server_message=TimerRequestBaseClientServerMessage(
 				message=expected_message,
 				seconds=1.0
 			)
@@ -5314,7 +5314,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending message")
 
 		client_messenger.send_to_server(
-			request_client_server_message=TimerRequestBaseClientServerMessage(
+			client_server_message=TimerRequestBaseClientServerMessage(
 				message=expected_message,
 				seconds=3.0
 			)
@@ -5384,7 +5384,7 @@ class MessengerTest(unittest.TestCase):
 		print(f"{datetime.utcnow()}: sending message")
 
 		client_messenger.send_to_server(
-			request_client_server_message=TimerRequestBaseClientServerMessage(
+			client_server_message=TimerRequestBaseClientServerMessage(
 				message=expected_message,
 				seconds=10.0
 			)
