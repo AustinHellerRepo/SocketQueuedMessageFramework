@@ -1,6 +1,6 @@
 from __future__ import annotations
 import unittest
-from src.austin_heller_repo.socket_queued_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, StructureFactory, StructureTransitionException, StructureInfluence, SourceTypeEnum
+from src.austin_heller_repo.socket_queued_message_framework import ClientMessenger, ServerMessenger, ClientServerMessage, ClientServerMessageTypeEnum, Structure, StructureStateEnum, StructureFactory, StructureTransitionException, StructureInfluence, SourceTypeEnum, ClientMessengerFactory, ServerMessengerFactory
 from austin_heller_repo.socket import ClientSocketFactory, ServerSocketFactory, ReadWriteSocketClosedException
 from austin_heller_repo.common import HostPointer
 from austin_heller_repo.kafka_manager import KafkaSequentialQueueFactory, KafkaManager, KafkaWrapper, KafkaManagerFactory
@@ -51,8 +51,8 @@ def get_default_kafka_manager_factory() -> KafkaManagerFactory:
 	)
 
 
-def get_default_client_messenger() -> ClientMessenger:
-	return ClientMessenger(
+def get_default_client_messenger_factory() -> ClientMessengerFactory:
+	return ClientMessengerFactory(
 		client_socket_factory=ClientSocketFactory(
 			to_server_packet_bytes_length=4096,
 			is_debug=is_socket_debug_active
@@ -63,7 +63,7 @@ def get_default_client_messenger() -> ClientMessenger:
 	)
 
 
-def get_default_server_messenger() -> ServerMessenger:
+def get_default_server_messenger_factory() -> ServerMessengerFactory:
 
 	if is_kafka_sequential_queue:
 
@@ -82,7 +82,7 @@ def get_default_server_messenger() -> ServerMessenger:
 	else:
 		sequential_queue_factory = SingletonMemorySequentialQueueFactory()
 
-	return ServerMessenger(
+	return ServerMessengerFactory(
 		server_socket_factory_and_local_host_pointer_per_source_type={
 			BaseSourceTypeEnum.Main: (
 				ServerSocketFactory(
@@ -140,7 +140,9 @@ class BaseClientServerMessage(ClientServerMessage, ABC):
 class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 
 	def __init__(self):
-		super().__init__()
+		super().__init__(
+			destination_uuid=None
+		)
 
 		pass
 
@@ -150,14 +152,11 @@ class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		# nothing to add
+		del json_object["destination_uuid"]
 		return json_object
 
 	def is_response(self) -> bool:
 		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
 
 	def is_structural_influence(self) -> bool:
 		return False
@@ -172,7 +171,9 @@ class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 class AnnounceBaseClientServerMessage(BaseClientServerMessage):
 
 	def __init__(self, *, name: str):
-		super().__init__()
+		super().__init__(
+			destination_uuid=None
+		)
 
 		self.__name = name
 
@@ -185,14 +186,12 @@ class AnnounceBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
+		del json_object["destination_uuid"]
 		json_object["name"] = self.__name
 		return json_object
 
 	def is_response(self) -> bool:
 		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
@@ -203,16 +202,16 @@ class AnnounceBaseClientServerMessage(BaseClientServerMessage):
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		print(f"{datetime.utcnow()}: AnnounceBaseClientServerMessage: get_structural_error_client_server_message_response: structure state: {structure_transition_exception.get_structure_state()}")
 		return AnnounceFailedBaseClientServerMessage(
-			client_uuid=destination_uuid
+			destination_uuid=destination_uuid
 		)
 
 
 class AnnounceFailedBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str):
-		super().__init__()
-
-		self.__client_uuid = client_uuid
+	def __init__(self, *, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
 	@classmethod
 	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
@@ -220,14 +219,10 @@ class AnnounceFailedBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		json_object["client_uuid"] = self.__client_uuid
 		return json_object
 
 	def is_response(self) -> bool:
 		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return False
@@ -242,7 +237,9 @@ class AnnounceFailedBaseClientServerMessage(BaseClientServerMessage):
 class PressButtonBaseClientServerMessage(BaseClientServerMessage):
 
 	def __init__(self):
-		super().__init__()
+		super().__init__(
+			destination_uuid=None
+		)
 
 		pass
 
@@ -252,14 +249,11 @@ class PressButtonBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		# nothing to add
+		del json_object["destination_uuid"]
 		return json_object
 
 	def is_response(self) -> bool:
 		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
@@ -274,7 +268,9 @@ class PressButtonBaseClientServerMessage(BaseClientServerMessage):
 class ResetButtonBaseClientServerMessage(BaseClientServerMessage):
 
 	def __init__(self):
-		super().__init__()
+		super().__init__(
+			destination_uuid=None
+		)
 
 		pass
 
@@ -284,14 +280,11 @@ class ResetButtonBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		# nothing to add
+		del json_object["destination_uuid"]
 		return json_object
 
 	def is_response(self) -> bool:
 		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
@@ -305,10 +298,12 @@ class ResetButtonBaseClientServerMessage(BaseClientServerMessage):
 
 class ResetTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str):
-		super().__init__()
+	def __init__(self, *, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
-		self.__client_uuid = client_uuid
+		pass
 
 	@classmethod
 	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
@@ -316,14 +311,10 @@ class ResetTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		json_object["client_uuid"] = self.__client_uuid
 		return json_object
 
 	def is_response(self) -> bool:
 		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return False
@@ -337,10 +328,11 @@ class ResetTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
 class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str, power: str):
-		super().__init__()
+	def __init__(self, *, power: str, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
-		self.__client_uuid = client_uuid
 		self.__power = power
 
 	def get_power(self) -> str:
@@ -352,15 +344,11 @@ class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		json_object["client_uuid"] = self.__client_uuid
 		json_object["power"] = self.__power
 		return json_object
 
 	def is_response(self) -> bool:
 		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return True
@@ -375,7 +363,9 @@ class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 class PingRequestBaseClientServerMessage(BaseClientServerMessage):
 
 	def __init__(self):
-		super().__init__()
+		super().__init__(
+			destination_uuid=None
+		)
 
 	@classmethod
 	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
@@ -383,13 +373,11 @@ class PingRequestBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
+		del json_object["destination_uuid"]
 		return json_object
 
 	def is_response(self) -> bool:
 		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
@@ -403,10 +391,11 @@ class PingRequestBaseClientServerMessage(BaseClientServerMessage):
 
 class PingResponseBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str, ping_index: int):
-		super().__init__()
+	def __init__(self, *, ping_index: int, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
-		self.__client_uuid = client_uuid
 		self.__ping_index = ping_index
 
 	def get_ping_index(self) -> int:
@@ -418,15 +407,11 @@ class PingResponseBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		json_object["client_uuid"] = self.__client_uuid
 		json_object["ping_index"] = self.__ping_index
 		return json_object
 
 	def is_response(self) -> bool:
 		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return False
@@ -441,7 +426,9 @@ class PingResponseBaseClientServerMessage(BaseClientServerMessage):
 class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 
 	def __init__(self, *, message: str, is_ordered: bool):
-		super().__init__()
+		super().__init__(
+			destination_uuid=None
+		)
 
 		self.__message = message
 		self.__is_ordered = is_ordered
@@ -455,15 +442,13 @@ class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
+		del json_object["destination_uuid"]
 		json_object["message"] = self.__message
 		json_object["is_ordered"] = self.__is_ordered
 		return json_object
 
 	def is_response(self) -> bool:
 		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
@@ -477,11 +462,12 @@ class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 
 class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, message: str, client_uuid: str):
-		super().__init__()
+	def __init__(self, *, message: str, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
 		self.__message = message
-		self.__client_uuid = client_uuid
 
 	def get_message(self) -> str:
 		return self.__message
@@ -493,14 +479,10 @@ class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		json_object["message"] = self.__message
-		json_object["client_uuid"] = self.__client_uuid
 		return json_object
 
 	def is_response(self) -> bool:
 		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return False
@@ -514,14 +496,15 @@ class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
 
 class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, is_constructor_exception_to_set: str = None, constructor_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, get_destination_uuid_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None, response_constructor_arguments: Dict = None):
-		super().__init__()
+	def __init__(self, *, is_constructor_exception_to_set: str = None, constructor_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None, response_constructor_arguments: Dict = None):
+		super().__init__(
+			destination_uuid=None
+		)
 
 		self.__is_constructor_exception_to_set = is_constructor_exception_to_set
 		self.__constructor_exception = constructor_exception
 		self.__to_json_exception = to_json_exception
 		self.__is_response_exception = is_response_exception
-		self.__get_destination_uuid_exception = get_destination_uuid_exception
 		self.__is_structural_influence_exception = is_structural_influence_exception
 		self.__is_ordered_exception = is_ordered_exception
 		self.__get_structural_error_client_server_message_response_exception = get_structural_error_client_server_message_response_exception
@@ -547,11 +530,11 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 			raise Exception(self.__to_json_exception)
 
 		json_object = super().to_json()
+		del json_object["destination_uuid"]
 		json_object["is_constructor_exception_to_set"] = self.__is_constructor_exception_to_set
 		json_object["constructor_exception"] = self.__constructor_exception
 		json_object["to_json_exception"] = self.__to_json_exception
 		json_object["is_response_exception"] = self.__is_response_exception
-		json_object["get_destination_uuid_exception"] = self.__get_destination_uuid_exception
 		json_object["is_structural_influence_exception"] = self.__is_structural_influence_exception
 		json_object["is_ordered_exception"] = self.__is_ordered_exception
 		json_object["get_structural_error_client_server_message_response_exception"] = self.__get_structural_error_client_server_message_response_exception
@@ -564,13 +547,6 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 			raise Exception(self.__is_response_exception)
 
 		return False
-
-	def get_destination_uuid(self) -> str:
-
-		if self.__get_destination_uuid_exception is not None:
-			raise Exception(self.__get_destination_uuid_exception)
-
-		return None
 
 	def is_structural_influence(self) -> bool:
 
@@ -596,15 +572,15 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 
 class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str, is_constructor_exception_to_set: str = None, constructor_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, get_destination_uuid_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None):
-		super().__init__()
+	def __init__(self, *, destination_uuid: str, is_constructor_exception_to_set: str = None, constructor_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
-		self.__client_uuid = client_uuid
 		self.__is_constructor_exception_to_set = is_constructor_exception_to_set
 		self.__constructor_exception = constructor_exception
 		self.__to_json_exception = to_json_exception
 		self.__is_response_exception = is_response_exception
-		self.__get_destination_uuid_exception = get_destination_uuid_exception
 		self.__is_structural_influence_exception = is_structural_influence_exception
 		self.__is_ordered_exception = is_ordered_exception
 		self.__get_structural_error_client_server_message_response_exception = get_structural_error_client_server_message_response_exception
@@ -626,12 +602,10 @@ class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 			raise Exception(self.__to_json_exception)
 
 		json_object = super().to_json()
-		json_object["client_uuid"] = self.__client_uuid
 		json_object["is_constructor_exception_to_set"] = self.__is_constructor_exception_to_set
 		json_object["constructor_exception"] = self.__constructor_exception
 		json_object["to_json_exception"] = self.__to_json_exception
 		json_object["is_response_exception"] = self.__is_response_exception
-		json_object["get_destination_uuid_exception"] = self.__get_destination_uuid_exception
 		json_object["is_structural_influence_exception"] = self.__is_structural_influence_exception
 		json_object["is_ordered_exception"] = self.__is_ordered_exception
 		json_object["get_structural_error_client_server_message_response_exception"] = self.__get_structural_error_client_server_message_response_exception
@@ -643,13 +617,6 @@ class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 			raise Exception(self.__is_response_exception)
 
 		return True
-
-	def get_destination_uuid(self) -> str:
-
-		if self.__get_destination_uuid_exception is not None:
-			raise Exception(self.__get_destination_uuid_exception)
-
-		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 
@@ -676,7 +643,9 @@ class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 class PowerButtonBaseClientServerMessage(BaseClientServerMessage):
 
 	def __init__(self, *, is_anonymous: bool):
-		super().__init__()
+		super().__init__(
+			destination_uuid=None
+		)
 
 		self.__is_anonymous = is_anonymous  # if an overload should not be sent back to them due to this message
 
@@ -689,14 +658,12 @@ class PowerButtonBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
+		del json_object["destination_uuid"]
 		json_object["is_anonymous"] = self.__is_anonymous
 		return json_object
 
 	def is_response(self) -> bool:
 		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
@@ -706,16 +673,18 @@ class PowerButtonBaseClientServerMessage(BaseClientServerMessage):
 
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return PowerButtonFailedBaseClientServerMessage(
-			client_uuid=destination_uuid
+			destination_uuid=destination_uuid
 		)
 
 
 class PowerOverloadTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str):
-		super().__init__()
+	def __init__(self, *, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
-		self.__client_uuid = client_uuid
+		pass
 
 	@classmethod
 	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
@@ -723,14 +692,10 @@ class PowerOverloadTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		json_object["client_uuid"] = self.__client_uuid
 		return json_object
 
 	def is_response(self) -> bool:
 		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return False
@@ -744,10 +709,12 @@ class PowerOverloadTransmissionBaseClientServerMessage(BaseClientServerMessage):
 
 class PowerButtonFailedBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str):
-		super().__init__()
+	def __init__(self, *, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
-		self.__client_uuid = client_uuid
+		pass
 
 	@classmethod
 	def get_client_server_message_type(cls) -> ClientServerMessageTypeEnum:
@@ -755,14 +722,10 @@ class PowerButtonFailedBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		json_object["client_uuid"] = self.__client_uuid
 		return json_object
 
 	def is_response(self) -> bool:
 		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return False
@@ -777,7 +740,9 @@ class PowerButtonFailedBaseClientServerMessage(BaseClientServerMessage):
 class TimerRequestBaseClientServerMessage(BaseClientServerMessage):
 
 	def __init__(self, *, message: str, seconds: float):
-		super().__init__()
+		super().__init__(
+			destination_uuid=None
+		)
 
 		self.__message = message
 		self.__seconds = seconds
@@ -794,15 +759,13 @@ class TimerRequestBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
+		del json_object["destination_uuid"]
 		json_object["message"] = self.__message
 		json_object["seconds"] = self.__seconds
 		return json_object
 
 	def is_response(self) -> bool:
 		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
 
 	def is_structural_influence(self) -> bool:
 		return True
@@ -816,10 +779,11 @@ class TimerRequestBaseClientServerMessage(BaseClientServerMessage):
 
 class TimerResponseBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, client_uuid: str, message: str):
-		super().__init__()
+	def __init__(self, *, message: str, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
-		self.__client_uuid = client_uuid
 		self.__message = message
 
 	def get_message(self) -> str:
@@ -831,15 +795,11 @@ class TimerResponseBaseClientServerMessage(BaseClientServerMessage):
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		json_object["client_uuid"] = self.__client_uuid
 		json_object["message"] = self.__message
 		return json_object
 
 	def is_response(self) -> bool:
 		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__client_uuid
 
 	def is_structural_influence(self) -> bool:
 		return False
@@ -866,7 +826,7 @@ class PowerStructure(Structure):
 		)
 
 		self.__power_total = 0
-		self.__client_uuids_to_inform_on_power_overload = []  # type: List[str]
+		self.__source_uuids_to_inform_on_power_overload = []  # type: List[str]
 
 		self.add_transition(
 			client_server_message_type=BaseClientServerMessageTypeEnum.PowerButton,
@@ -884,9 +844,9 @@ class PowerStructure(Structure):
 			on_transition=self.__power_button_pressed
 		)
 
-	def add_client_uuid_for_power_overload_transmission(self, *, client_uuid: str):
-		if client_uuid not in self.__client_uuids_to_inform_on_power_overload:
-			self.__client_uuids_to_inform_on_power_overload.append(client_uuid)
+	def add_source_uuid_for_power_overload_transmission(self, *, source_uuid: str):
+		if source_uuid not in self.__source_uuids_to_inform_on_power_overload:
+			self.__source_uuids_to_inform_on_power_overload.append(source_uuid)
 
 	def get_power(self) -> str:
 		if self.__power_total < 3:
@@ -908,8 +868,8 @@ class PowerStructure(Structure):
 		source_uuid = structure_influence.get_source_uuid()
 
 		if not power_button.is_anonymous():
-			self.add_client_uuid_for_power_overload_transmission(
-				client_uuid=source_uuid
+			self.add_source_uuid_for_power_overload_transmission(
+				source_uuid=source_uuid
 			)
 
 		self.__power_total += 1
@@ -925,13 +885,13 @@ class PowerStructure(Structure):
 				structure_state=PowerStructureStateEnum.Overpowered
 			)
 
-			for client_uuid in self.__client_uuids_to_inform_on_power_overload:
-				self.send_response(
+			for source_uuid in self.__source_uuids_to_inform_on_power_overload:
+				self.send_client_server_message(
 					client_server_message=PowerOverloadTransmissionBaseClientServerMessage(
-						client_uuid=client_uuid
+						destination_uuid=source_uuid
 					)
 				)
-			self.__client_uuids_to_inform_on_power_overload.clear()
+			self.__source_uuids_to_inform_on_power_overload.clear()
 
 		print(f"{datetime.utcnow()}: PowerStructure: __power_button_pressed: end")
 
@@ -954,7 +914,7 @@ class ButtonStructure(Structure):
 			initial_state=ButtonStructureStateEnum.ZeroPresses
 		)
 
-		self.__pressed_button_client_uuids = []  # type: List[str]
+		self.__pressed_button_source_uuids = []  # type: List[str]
 		self.__name_per_client_uuid = {}  # type: Dict[str, str]
 		self.__presses_total = 0
 		self.__pings_total = 0
@@ -1099,17 +1059,17 @@ class ButtonStructure(Structure):
 			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
 
 		source_uuid = structure_influence.get_source_uuid()
-		if source_uuid not in self.__pressed_button_client_uuids:
-			self.__pressed_button_client_uuids.append(source_uuid)
+		if source_uuid not in self.__pressed_button_source_uuids:
+			self.__pressed_button_source_uuids.append(source_uuid)
 		if source_uuid in self.__name_per_client_uuid:
 			print(f"button pressed by {self.__name_per_client_uuid[source_uuid]}")
 		else:
 			print(f"button pressed by {source_uuid}")
 		self.__presses_total += 1
 		if self.__presses_total == 3:
-			self.send_response(
+			self.send_client_server_message(
 				client_server_message=ThreePressesTransmissionBaseClientServerMessage(
-					client_uuid=source_uuid,
+					destination_uuid=source_uuid,
 					power=self.__power_structure.get_power()
 				)
 			)
@@ -1119,21 +1079,21 @@ class ButtonStructure(Structure):
 		if structure_influence.get_source_type() != BaseSourceTypeEnum.Main:
 			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
 
-		for client_uuid in self.__pressed_button_client_uuids:
+		for source_uuid in self.__pressed_button_source_uuids:
 			client_server_message = ResetTransmissionBaseClientServerMessage(
-				client_uuid=client_uuid
+				destination_uuid=source_uuid
 			)
-			self.send_response(
+			self.send_client_server_message(
 				client_server_message=client_server_message
 			)
-		self.__pressed_button_client_uuids.clear()
+		self.__pressed_button_source_uuids.clear()
 
 	def __three_presses_transmission_sent(self, structure_influence: StructureInfluence):
 
 		if structure_influence.get_source_type() != BaseSourceTypeEnum.ServerMessenger:
 			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
 
-		self.__pressed_button_client_uuids.clear()
+		self.__pressed_button_source_uuids.clear()
 
 	def __ping_requested(self, structure_influence: StructureInfluence):
 
@@ -1141,9 +1101,9 @@ class ButtonStructure(Structure):
 			raise Exception(f"Unexpected source type: {structure_influence.get_source_type()}.")
 
 		source_uuid = structure_influence.get_source_uuid()
-		self.send_response(
+		self.send_client_server_message(
 			client_server_message=PingResponseBaseClientServerMessage(
-				client_uuid=source_uuid,
+				destination_uuid=source_uuid,
 				ping_index=self.__pings_total
 			)
 		)
@@ -1157,10 +1117,10 @@ class ButtonStructure(Structure):
 		echo_request = structure_influence.get_client_server_message()  # type: EchoRequestBaseClientServerMessage
 		source_uuid = structure_influence.get_source_uuid()
 		message = echo_request.get_message()
-		self.send_response(
+		self.send_client_server_message(
 			client_server_message=EchoResponseBaseClientServerMessage(
 				message=message,
-				client_uuid=source_uuid
+				destination_uuid=source_uuid
 			)
 		)
 
@@ -1174,8 +1134,8 @@ class ButtonStructure(Structure):
 		constructor_arguments = error_request.get_response_constructor_arguments()
 		if constructor_arguments is None:
 			constructor_arguments = {}
-		constructor_arguments["client_uuid"] = source_uuid
-		self.send_response(
+		constructor_arguments["destination_uuid"] = source_uuid
+		self.send_client_server_message(
 			client_server_message=ErrorResponseBaseClientServerMessage(
 				**constructor_arguments
 			)
@@ -1203,9 +1163,9 @@ class ButtonStructure(Structure):
 			nonlocal source_uuid
 
 			time.sleep(timer_request.get_seconds())
-			self.send_response(
+			self.send_client_server_message(
 				client_server_message=TimerResponseBaseClientServerMessage(
-					client_uuid=source_uuid,
+					destination_uuid=source_uuid,
 					message=timer_request.get_message()
 				)
 			)
@@ -1287,7 +1247,7 @@ class MessengerTest(unittest.TestCase):
 
 	def test_initialize_client_messenger(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		self.assertIsNotNone(client_messenger)
 
@@ -1295,13 +1255,13 @@ class MessengerTest(unittest.TestCase):
 
 	def test_initialize_server_messenger(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		self.assertIsNotNone(server_messenger)
 
 	def test_server_messenger_start_and_stop(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1317,9 +1277,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_connect_client_to_server_and_client_disposes_first(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1343,9 +1303,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_connect_client_to_server_and_server_stops_first(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1369,9 +1329,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_connect_client_to_server_client_receives_and_client_disposes_first(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1416,9 +1376,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_connect_client_to_server_client_receives_and_server_stops_first(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1463,9 +1423,9 @@ class MessengerTest(unittest.TestCase):
 	def test_press_button_three_times(self):
 		# send three presses and wait for a reply
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1542,9 +1502,9 @@ class MessengerTest(unittest.TestCase):
 	def test_one_client_sends_two_presses_then_reset(self):
 		# send two presses of the button, then send a reset, and finally wait for a reply
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1620,11 +1580,11 @@ class MessengerTest(unittest.TestCase):
 
 	def test_two_clients_each_send_one_press_then_reset(self):
 
-		first_client_messenger = get_default_client_messenger()
+		first_client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		second_client_messenger = get_default_client_messenger()
+		second_client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1730,11 +1690,11 @@ class MessengerTest(unittest.TestCase):
 
 	def test_two_clients_each_send_one_press_then_third_client_reset(self):
 
-		first_client_messenger = get_default_client_messenger()
-		second_client_messenger = get_default_client_messenger()
-		third_client_messenger = get_default_client_messenger()
+		first_client_messenger = get_default_client_messenger_factory().get_client_messenger()
+		second_client_messenger = get_default_client_messenger_factory().get_client_messenger()
+		third_client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1876,11 +1836,11 @@ class MessengerTest(unittest.TestCase):
 		# the first client sends a press, disconnects, then the second client resets
 		# the server messenger should detect that the client disconnected and release the socket gracefully
 
-		first_client_messenger = get_default_client_messenger()
+		first_client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		second_client_messenger = get_default_client_messenger()
+		second_client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1993,9 +1953,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_ping(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -2066,9 +2026,9 @@ class MessengerTest(unittest.TestCase):
 	def test_single_client_quickly_pings_using_threading(self):
 		# spam pings and detect timing differences between sends and receives
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -2188,7 +2148,7 @@ class MessengerTest(unittest.TestCase):
 	def test_single_client_quickly_pings_burst(self):
 		# spam pings and detect timing differences between sends and receives
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -2204,7 +2164,7 @@ class MessengerTest(unittest.TestCase):
 			nonlocal expected_pings_total
 			nonlocal found_exception
 
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 			client_messenger.connect_to_server()
 
@@ -2310,7 +2270,7 @@ class MessengerTest(unittest.TestCase):
 	def test_single_client_quickly_pings_delayed(self):
 		# spam pings and detect timing differences between sends and receives
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -2333,7 +2293,7 @@ class MessengerTest(unittest.TestCase):
 			nonlocal delay_between_sending_message_seconds
 			nonlocal found_exception
 
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 			client_messenger.connect_to_server()
 
@@ -2451,7 +2411,7 @@ class MessengerTest(unittest.TestCase):
 	def test_single_client_quickly_echos_burst_0B(self):
 		# spam pings and detect timing differences between sends and receives
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -2469,7 +2429,7 @@ class MessengerTest(unittest.TestCase):
 			nonlocal found_exception
 			nonlocal message_contents
 
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 			client_messenger.connect_to_server()
 
@@ -2582,7 +2542,7 @@ class MessengerTest(unittest.TestCase):
 	def test_single_client_quickly_echos_burst_1KB(self):
 		# spam pings and detect timing differences between sends and receives
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -2600,7 +2560,7 @@ class MessengerTest(unittest.TestCase):
 			nonlocal found_exception
 			nonlocal message_contents
 
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 			client_messenger.connect_to_server()
 
@@ -2713,7 +2673,7 @@ class MessengerTest(unittest.TestCase):
 	def test_single_client_quickly_echos_burst_5KB(self):
 		# spam pings and detect timing differences between sends and receives
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -2731,7 +2691,7 @@ class MessengerTest(unittest.TestCase):
 			nonlocal found_exception
 			nonlocal message_contents
 
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 			client_messenger.connect_to_server()
 
@@ -2844,7 +2804,7 @@ class MessengerTest(unittest.TestCase):
 	def test_single_client_quickly_echos_burst_10KB(self):
 		# spam pings and detect timing differences between sends and receives
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -2862,7 +2822,7 @@ class MessengerTest(unittest.TestCase):
 			nonlocal found_exception
 			nonlocal message_contents
 
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 			client_messenger.connect_to_server()
 
@@ -2975,9 +2935,9 @@ class MessengerTest(unittest.TestCase):
 	def test_client_attempts_message_impossible_for_structure_state_but_exception_in_callback(self):
 		# attempt to reset the presses without first pressing the button
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -3048,9 +3008,9 @@ class MessengerTest(unittest.TestCase):
 	def test_client_attempts_message_impossible_for_structure_state(self):
 		# attempt to reset the presses without first pressing the button
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -3117,9 +3077,9 @@ class MessengerTest(unittest.TestCase):
 	def test_client_attempts_message_impossible_for_child_structure_state(self):
 		# call power 4 times
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -3231,14 +3191,14 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: setting up server")
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		print(f"{datetime.utcnow()}: setting up client")
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		callback_total = 0
 		last_message_index = -1
@@ -3320,7 +3280,7 @@ class MessengerTest(unittest.TestCase):
 		minimum_delay_between_messages_seconds = 0.0001
 		accepted_delay_between_messages_that_could_result_in_disorder = 0.001
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -3328,8 +3288,8 @@ class MessengerTest(unittest.TestCase):
 		time.sleep(1)
 
 		client_messengers = []  # type: List[ClientMessenger]
-		client_messengers.append(get_default_client_messenger())
-		client_messengers.append(get_default_client_messenger())
+		client_messengers.append(get_default_client_messenger_factory().get_client_messenger())
+		client_messengers.append(get_default_client_messenger_factory().get_client_messenger())
 
 		callback_total = 0
 		last_message_index = -1
@@ -3423,14 +3383,14 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: setting up server")
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		print(f"{datetime.utcnow()}: setting up client")
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		callback_total = 0
 		last_message_index = -1
@@ -3493,13 +3453,13 @@ class MessengerTest(unittest.TestCase):
 
 	def test_parse_client_server_message_raises_exception_when_receiving_in_server_messenger(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -3550,13 +3510,13 @@ class MessengerTest(unittest.TestCase):
 
 	def test_getting_json_of_client_server_message_raises_exception_when_sending_to_server_messenger(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -3605,13 +3565,13 @@ class MessengerTest(unittest.TestCase):
 
 	def test_check_if_is_response_client_server_message_raises_exception_when_processing_in_server_messenger(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -3667,77 +3627,15 @@ class MessengerTest(unittest.TestCase):
 		if found_exception is not None:
 			raise found_exception
 
-	def test_getting_destination_uuid_from_client_server_message_raises_exception_when_processing_in_server_messenger(self):
-
-		server_messenger = get_default_server_messenger()
-
-		server_messenger.start_receiving_from_clients()
-
-		time.sleep(1)
-
-		client_messenger = get_default_client_messenger()
-
-		client_messenger.connect_to_server()
-
-		callback_total = 0
-
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal callback_total
-			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
-			if callback_total == 0:
-				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
-			else:
-				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
-			callback_total += 1
-
-		found_exception = None  # type: Exception
-
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			found_exception = exception
-
-		client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
-		)
-
-		print(f"{datetime.utcnow()}: sending error messages")
-
-		expected_exception = f"test exception: {uuid.uuid4()}"
-
-		client_messenger.send_to_server(
-			client_server_message=ErrorRequestBaseClientServerMessage(
-				get_destination_uuid_exception=expected_exception
-			)
-		)
-
-		time.sleep(1)
-
-		client_messenger.send_to_server(
-			client_server_message=PingRequestBaseClientServerMessage()
-		)
-
-		time.sleep(5)
-
-		client_messenger.dispose()
-
-		time.sleep(1)
-
-		server_messenger.stop_receiving_from_clients()
-
-		# the server encountered an exception but did not close the connect due to it and is still receiving requests
-		if found_exception is not None:
-			raise found_exception
-
 	def test_checking_if_is_structural_influence_from_client_server_message_raises_exception_when_processing_in_server_messenger(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -3796,13 +3694,13 @@ class MessengerTest(unittest.TestCase):
 
 	def test_checking_if_is_ordered_from_client_server_message_raises_exception_when_processing_in_server_messenger_with_ping_exception(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -3861,13 +3759,13 @@ class MessengerTest(unittest.TestCase):
 
 	def test_checking_if_is_ordered_from_client_server_message_raises_exception_when_processing_in_server_messenger(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -3921,13 +3819,13 @@ class MessengerTest(unittest.TestCase):
 
 	def test_getting_structural_error_client_server_message_response_from_client_server_message_raises_exception_when_processing_in_server_messenger_but_succeeds(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -3983,13 +3881,13 @@ class MessengerTest(unittest.TestCase):
 
 	def test_getting_structural_error_client_server_message_response_from_client_server_message_raises_exception_when_processing_in_server_messenger_and_causes_exception(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -4054,13 +3952,13 @@ class MessengerTest(unittest.TestCase):
 
 	def test_parse_client_server_message_in_response_raises_exception_when_parsing_in_server_messenger(self):
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -4126,13 +4024,13 @@ class MessengerTest(unittest.TestCase):
 		messages_total = 100
 		message_subset_length = 10
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -4230,13 +4128,13 @@ class MessengerTest(unittest.TestCase):
 		messages_total = 100
 		message_subset_length = 1
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -4334,13 +4232,13 @@ class MessengerTest(unittest.TestCase):
 		messages_total = 1000
 		message_subset_length = 1
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
 		time.sleep(1)
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		client_messenger.connect_to_server()
 
@@ -4435,9 +4333,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_child_structure_power_once_then_reset(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -4508,9 +4406,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_child_structure_power_four_times(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -4617,9 +4515,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_child_structure_power_three_times_anonymous_underpowered(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -4680,7 +4578,7 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(0.1)
 
-		press_client_messenger = get_default_client_messenger()
+		press_client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		press_client_messenger.connect_to_server()
 
@@ -4770,9 +4668,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_child_structure_power_three_times_anonymous_powered(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -4844,7 +4742,7 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(0.1)
 
-		press_client_messenger = get_default_client_messenger()
+		press_client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		press_client_messenger.connect_to_server()
 
@@ -4922,9 +4820,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_child_structure_power_four_times_anonymous_overpowered(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -5008,7 +4906,7 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(0.1)
 
-		press_client_messenger = get_default_client_messenger()
+		press_client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
 		press_client_messenger.connect_to_server()
 
@@ -5086,9 +4984,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_child_structure_power_five_times_anonymous_impossible_state(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -5209,9 +5107,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_timer_request_1s(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -5277,9 +5175,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_timer_request_after_client_disposed(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -5347,9 +5245,9 @@ class MessengerTest(unittest.TestCase):
 
 	def test_timer_request_after_server_stopped(self):
 
-		client_messenger = get_default_client_messenger()
+		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 

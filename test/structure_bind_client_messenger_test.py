@@ -7,24 +7,26 @@ from collections import deque
 import time
 from datetime import datetime
 from src.austin_heller_repo.socket_queued_message_framework import Structure, StructureFactory, ClientServerMessage, SourceTypeEnum, ClientServerMessageTypeEnum, StructureStateEnum, ClientMessengerFactory, ClientMessenger, StructureTransitionException, StructureInfluence, ServerMessenger, ServerMessengerFactory, ServerSocketFactory, HostPointer, ClientSocketFactory
-from austin_heller_repo.threading import SingletonMemorySequentialQueueFactory
-from austin_heller_repo.common import StringEnum, CachedDependentDependencyManager, AggregateDependentDependencyManager
+from austin_heller_repo.threading import SingletonMemorySequentialQueueFactory, Semaphore
+from austin_heller_repo.common import StringEnum, SingleDependentDependencyManager, AggregateDependentDependencyManager
 
 
 is_debug = False
 
 
-def get_default_message_manager_client_messenger_factory() -> ClientMessengerFactory:
-	return ClientMessengerFactory(
-		client_socket_factory=ClientSocketFactory(
-			to_server_packet_bytes_length=4096
-		),
-		server_host_pointer=HostPointer(
-			host_address="localhost",
-			host_port=37440
-		),
-		client_server_message_class=MessageManagerClientServerMessage,
-		is_debug=is_debug
+def get_default_message_manager_client_structure_factory() -> MessageManagerClientStructureFactory:
+	return MessageManagerClientStructureFactory(
+		message_manager_client_messenger_factory=ClientMessengerFactory(
+			client_socket_factory=ClientSocketFactory(
+				to_server_packet_bytes_length=4096
+			),
+			server_host_pointer=HostPointer(
+				host_address="localhost",
+				host_port=37440
+			),
+			client_server_message_class=MessageManagerClientServerMessage,
+			is_debug=is_debug
+		)
 	)
 
 
@@ -151,8 +153,10 @@ class MessageManagerClientServerMessage(ClientServerMessage, ABC):
 
 class FormatMessageRequestMessageManagerClientServerMessage(MessageManagerClientServerMessage):
 
-	def __init__(self, *, message: str, format_types: List[str]):
-		super().__init__()
+	def __init__(self, *, message: str, format_types: List[str], destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
 		self.__message = message
 		self.__format_types = [FormatTypeEnum(x) for x in format_types]
@@ -173,15 +177,6 @@ class FormatMessageRequestMessageManagerClientServerMessage(MessageManagerClient
 		json_object["format_types"] = [x.value for x in self.__format_types]
 		return json_object
 
-	def is_response(self) -> bool:
-		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
-
-	def is_structural_influence(self) -> bool:
-		return True
-
 	def is_ordered(self) -> bool:
 		return True
 
@@ -191,10 +186,11 @@ class FormatMessageRequestMessageManagerClientServerMessage(MessageManagerClient
 
 class FormatMessageResponseMessageManagerClientServerMessage(MessageManagerClientServerMessage):
 
-	def __init__(self, *, destination_uuid: str, message: str):
-		super().__init__()
+	def __init__(self, *, message: str, destination_uuid: str,):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
-		self.__destination_uuid = destination_uuid
 		self.__message = message
 
 	def get_message(self) -> str:
@@ -206,18 +202,8 @@ class FormatMessageResponseMessageManagerClientServerMessage(MessageManagerClien
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		json_object["destination_uuid"] = self.__destination_uuid
 		json_object["message"] = self.__message
 		return json_object
-
-	def is_response(self) -> bool:
-		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__destination_uuid
-
-	def is_structural_influence(self) -> bool:
-		return False
 
 	def is_ordered(self) -> bool:
 		return True
@@ -250,8 +236,10 @@ class UppercaseManagerClientServerMessage(ClientServerMessage, ABC):
 
 class FormatMessageRequestUppercaseManagerClientServerMessage(UppercaseManagerClientServerMessage):
 
-	def __init__(self, *, message: str, message_uuid: str):
-		super().__init__()
+	def __init__(self, *, message: str, message_uuid: str, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
 		self.__message = message
 		self.__message_uuid = message_uuid
@@ -272,15 +260,6 @@ class FormatMessageRequestUppercaseManagerClientServerMessage(UppercaseManagerCl
 		json_object["message_uuid"] = self.__message_uuid
 		return json_object
 
-	def is_response(self) -> bool:
-		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
-
-	def is_structural_influence(self) -> bool:
-		return True
-
 	def is_ordered(self) -> bool:
 		return True
 
@@ -290,10 +269,11 @@ class FormatMessageRequestUppercaseManagerClientServerMessage(UppercaseManagerCl
 
 class FormatMessageResponseUppercaseManagerClientServerMessage(UppercaseManagerClientServerMessage):
 
-	def __init__(self, *, destination_uuid: str, message: str, message_uuid: str):
-		super().__init__()
+	def __init__(self, *, message: str, message_uuid: str, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
-		self.__destination_uuid = destination_uuid
 		self.__message = message
 		self.__message_uuid = message_uuid
 
@@ -309,19 +289,9 @@ class FormatMessageResponseUppercaseManagerClientServerMessage(UppercaseManagerC
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		json_object["destination_uuid"] = self.__destination_uuid
 		json_object["message"] = self.__message
 		json_object["message_uuid"] = self.__message_uuid
 		return json_object
-
-	def is_response(self) -> bool:
-		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__destination_uuid
-
-	def is_structural_influence(self) -> bool:
-		return False
 
 	def is_ordered(self) -> bool:
 		return True
@@ -354,8 +324,10 @@ class ReverseManagerClientServerMessage(ClientServerMessage, ABC):
 
 class FormatMessageRequestReverseManagerClientServerMessage(ReverseManagerClientServerMessage):
 
-	def __init__(self, *, message: str, message_uuid: str):
-		super().__init__()
+	def __init__(self, *, message: str, message_uuid: str, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
 		self.__message = message
 		self.__message_uuid = message_uuid
@@ -376,15 +348,6 @@ class FormatMessageRequestReverseManagerClientServerMessage(ReverseManagerClient
 		json_object["message_uuid"] = self.__message_uuid
 		return json_object
 
-	def is_response(self) -> bool:
-		return False
-
-	def get_destination_uuid(self) -> str:
-		return None
-
-	def is_structural_influence(self) -> bool:
-		return True
-
 	def is_ordered(self) -> bool:
 		return True
 
@@ -394,10 +357,11 @@ class FormatMessageRequestReverseManagerClientServerMessage(ReverseManagerClient
 
 class FormatMessageResponseReverseManagerClientServerMessage(ReverseManagerClientServerMessage):
 
-	def __init__(self, *, destination_uuid: str, message: str, message_uuid: str):
-		super().__init__()
+	def __init__(self, *, message: str, message_uuid: str, destination_uuid: str):
+		super().__init__(
+			destination_uuid=destination_uuid
+		)
 
-		self.__destination_uuid = destination_uuid
 		self.__message = message
 		self.__message_uuid = message_uuid
 
@@ -413,19 +377,9 @@ class FormatMessageResponseReverseManagerClientServerMessage(ReverseManagerClien
 
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
-		json_object["destination_uuid"] = self.__destination_uuid
 		json_object["message"] = self.__message
 		json_object["message_uuid"] = self.__message_uuid
 		return json_object
-
-	def is_response(self) -> bool:
-		return True
-
-	def get_destination_uuid(self) -> str:
-		return self.__destination_uuid
-
-	def is_structural_influence(self) -> bool:
-		return False
 
 	def is_ordered(self) -> bool:
 		return True
@@ -446,8 +400,8 @@ class MessageManagerStructure(Structure):
 		self.__uppercase_manager_client_messenger_factory = uppercase_manager_client_messenger_factory
 		self.__reverse_manager_client_messenger_factory = reverse_manager_client_messenger_factory
 
-		self.__uppercase_manager_client_messenger = None  # type: ClientMessenger
-		self.__reverse_manager_client_messenger = None  # type: ClientMessenger
+		self.__uppercase_manager_client_messenger_source_uuid = None  # type: str
+		self.__reverse_manager_client_messenger_source_uuid = None  # type: str
 		self.__message_per_message_uuid = {}  # type: Dict[str, str]
 		self.__format_types_per_message_uuid = {}  # type: Dict[str, Deque[FormatTypeEnum]]
 		self.__source_uuid_per_message_uuid = {}  # type: Dict[str, str]
@@ -480,12 +434,12 @@ class MessageManagerStructure(Structure):
 
 	def __initialize(self):
 
-		self.__uppercase_manager_client_messenger = self.bind_client_messenger(
+		self.__uppercase_manager_client_messenger_source_uuid = self.bind_client_messenger(
 			client_messenger_factory=self.__uppercase_manager_client_messenger_factory,
 			source_type=MessageManagerSourceTypeEnum.UppercaseManager
 		)
 
-		self.__reverse_manager_client_messenger = self.bind_client_messenger(
+		self.__reverse_manager_client_messenger_source_uuid = self.bind_client_messenger(
 			client_messenger_factory=self.__reverse_manager_client_messenger_factory,
 			source_type=MessageManagerSourceTypeEnum.ReverseManager
 		)
@@ -497,7 +451,7 @@ class MessageManagerStructure(Structure):
 			del self.__message_per_message_uuid[message_uuid]
 			source_uuid = self.__source_uuid_per_message_uuid[message_uuid]
 			del self.__source_uuid_per_message_uuid[message_uuid]
-			self.send_response(
+			self.send_client_server_message(
 				client_server_message=FormatMessageResponseMessageManagerClientServerMessage(
 					destination_uuid=source_uuid,
 					message=message
@@ -508,19 +462,19 @@ class MessageManagerStructure(Structure):
 			if not self.__format_types_per_message_uuid[message_uuid]:
 				del self.__format_types_per_message_uuid[message_uuid]
 			if format_type == FormatTypeEnum.Uppercase:
-				print(f"{datetime.utcnow()}: MessageManagerStructure: sending uppercase format request")
-				self.__uppercase_manager_client_messenger.send_to_server(
+				self.send_client_server_message(
 					client_server_message=FormatMessageRequestUppercaseManagerClientServerMessage(
 						message=message,
-						message_uuid=message_uuid
+						message_uuid=message_uuid,
+						destination_uuid=self.__uppercase_manager_client_messenger_source_uuid
 					)
 				)
 			elif format_type == FormatTypeEnum.Reverse:
-				print(f"{datetime.utcnow()}: MessageManagerStructure: sending reverse format request")
-				self.__reverse_manager_client_messenger.send_to_server(
+				self.send_client_server_message(
 					client_server_message=FormatMessageRequestReverseManagerClientServerMessage(
 						message=message,
-						message_uuid=message_uuid
+						message_uuid=message_uuid,
+						destination_uuid=self.__reverse_manager_client_messenger_source_uuid
 					)
 				)
 			else:
@@ -530,7 +484,6 @@ class MessageManagerStructure(Structure):
 
 		client_server_message = structure_influence.get_client_server_message()
 		if isinstance(client_server_message, FormatMessageRequestMessageManagerClientServerMessage):
-			print(f"{datetime.utcnow()}: MessageManagerStructure: received format message request")
 			message = client_server_message.get_message()
 			format_types = client_server_message.get_format_types()
 			source_uuid = structure_influence.get_source_uuid()
@@ -548,7 +501,6 @@ class MessageManagerStructure(Structure):
 
 		client_server_message = structure_influence.get_client_server_message()
 		if isinstance(client_server_message, FormatMessageResponseUppercaseManagerClientServerMessage):
-			print(f"{datetime.utcnow()}: MessageManagerStructure: received uppercase format message response")
 			message = client_server_message.get_message()
 			message_uuid = client_server_message.get_message_uuid()
 			self.__message_per_message_uuid[message_uuid] = message
@@ -556,7 +508,6 @@ class MessageManagerStructure(Structure):
 				message_uuid=message_uuid
 			)
 		elif isinstance(client_server_message, FormatMessageResponseReverseManagerClientServerMessage):
-			print(f"{datetime.utcnow()}: MessageManagerStructure: received reverse format message response")
 			message = client_server_message.get_message()
 			message_uuid = client_server_message.get_message_uuid()
 			self.__message_per_message_uuid[message_uuid] = message
@@ -565,10 +516,6 @@ class MessageManagerStructure(Structure):
 			)
 		else:
 			raise NotImplementedError()
-
-	def dispose(self):
-		self.__uppercase_manager_client_messenger.dispose()
-		self.__reverse_manager_client_messenger.dispose()
 
 
 class MessageManagerStructureFactory(StructureFactory):
@@ -609,7 +556,7 @@ class UppercaseManagerStructure(Structure):
 			message = client_server_message.get_message()
 			message_uuid = client_server_message.get_message_uuid()
 			formatted_message = message.upper()
-			self.send_response(
+			self.send_client_server_message(
 				client_server_message=FormatMessageResponseUppercaseManagerClientServerMessage(
 					destination_uuid=structure_influence.get_source_uuid(),
 					message=formatted_message,
@@ -618,9 +565,6 @@ class UppercaseManagerStructure(Structure):
 			)
 		else:
 			raise NotImplementedError()
-
-	def dispose(self):
-		pass
 
 
 class UppercaseManagerStructureFactory(StructureFactory):
@@ -652,7 +596,7 @@ class ReverseManagerStructure(Structure):
 			message = client_server_message.get_message()
 			message_uuid = client_server_message.get_message_uuid()
 			formatted_message = message[::-1]
-			self.send_response(
+			self.send_client_server_message(
 				client_server_message=FormatMessageResponseReverseManagerClientServerMessage(
 					destination_uuid=structure_influence.get_source_uuid(),
 					message=formatted_message,
@@ -662,14 +606,87 @@ class ReverseManagerStructure(Structure):
 		else:
 			raise NotImplementedError()
 
-	def dispose(self):
-		pass
-
 
 class ReverseManagerStructureFactory(StructureFactory):
 
 	def get_structure(self) -> Structure:
 		return ReverseManagerStructure()
+
+
+class MessageManagerClientStructureStateEnum(StructureStateEnum):
+	Active = "active"
+
+
+class MessageManagerClientStructure(Structure):
+
+	def __init__(self, *, message_manager_client_messenger_factory: ClientMessengerFactory):
+		super().__init__(
+			states=MessageManagerClientStructureStateEnum,
+			initial_state=MessageManagerClientStructureStateEnum.Active
+		)
+
+		self.__message_manager_client_messenger_factory = message_manager_client_messenger_factory
+
+		self.__message_manager_source_uuid = None  # type: str
+		self.__method_semaphore = Semaphore()
+		self.__blocking_semaphore = Semaphore()
+		self.__previous_client_server_message = None  # type: ClientServerMessage
+
+		self.add_transition(
+			client_server_message_type=MessageManagerClientServerMessageTypeEnum.FormatMessageResponse,
+			from_source_type=MessageManagerSourceTypeEnum.MessageManager,
+			start_structure_state=MessageManagerClientStructureStateEnum.Active,
+			end_structure_state=MessageManagerClientStructureStateEnum.Active,
+			on_transition=self.__message_manager_client_structure_on_transition
+		)
+
+		self.__initialize()
+
+	def __initialize(self):
+
+		self.__blocking_semaphore.acquire()
+
+		self.__message_manager_source_uuid = self.bind_client_messenger(
+			client_messenger_factory=self.__message_manager_client_messenger_factory,
+			source_type=MessageManagerSourceTypeEnum.MessageManager
+		)
+
+	def __message_manager_client_structure_on_transition(self, structure_influence: StructureInfluence):
+
+		client_server_message = structure_influence.get_client_server_message()
+		self.__previous_client_server_message = client_server_message
+		self.__blocking_semaphore.release()
+
+	def format_message(self, *, message: str, format_types: List[FormatTypeEnum]) -> str:
+		self.__method_semaphore.acquire()
+		try:
+			self.send_client_server_message(
+				client_server_message=FormatMessageRequestMessageManagerClientServerMessage(
+					message=message,
+					format_types=[x.value for x in format_types],
+					destination_uuid=self.__message_manager_source_uuid
+				)
+			)
+			self.__blocking_semaphore.acquire()
+			if not isinstance(self.__previous_client_server_message, FormatMessageResponseMessageManagerClientServerMessage):
+				raise Exception(f"Unexpected message: {self.__previous_client_server_message}")
+			else:
+				message = self.__previous_client_server_message.get_message()
+		finally:
+			self.__method_semaphore.release()
+		return message
+
+
+class MessageManagerClientStructureFactory(StructureFactory):
+
+	def __init__(self, *, message_manager_client_messenger_factory: ClientMessengerFactory):
+
+		self.__message_manager_client_messenger_factory = message_manager_client_messenger_factory
+
+	def get_structure(self) -> MessageManagerClientStructure:
+		return MessageManagerClientStructure(
+			message_manager_client_messenger_factory=self.__message_manager_client_messenger_factory
+		)
 
 
 class StructureBindClientMessengerTest(unittest.TestCase):
@@ -726,40 +743,20 @@ class StructureBindClientMessengerTest(unittest.TestCase):
 
 		# send message
 
-		message_manager_client_messenger = get_default_message_manager_client_messenger_factory().get_client_messenger()
+		message_manager_client_structure = get_default_message_manager_client_structure_factory().get_structure()
 
-		formatted_message = None  # type: str
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal formatted_message
-			if isinstance(client_server_message, FormatMessageResponseMessageManagerClientServerMessage):
-				formatted_message = client_server_message.get_message()
-			else:
-				raise Exception(f"Unexpected message: {client_server_message}")
-
-		found_exception = None  # type: Exception
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			if found_exception is not None:
-				found_exception = exception
-
-		message_manager_client_messenger.connect_to_server()
-		message_manager_client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
+		formatted_message = message_manager_client_structure.format_message(
+			message="test message",
+			format_types=[
+				FormatTypeEnum.Uppercase
+			]
 		)
 
-		message_manager_client_messenger.send_to_server(
-			client_server_message=FormatMessageRequestMessageManagerClientServerMessage(
-				message="test message",
-				format_types=[
-					FormatTypeEnum.Uppercase.value
-				]
-			)
-		)
+		# waiting for messages
 
 		time.sleep(1.0)
 
-		message_manager_client_messenger.dispose()
+		message_manager_client_structure.dispose()
 
 		message_manager_server_messenger.stop_receiving_from_clients()
 
@@ -774,9 +771,6 @@ class StructureBindClientMessengerTest(unittest.TestCase):
 		uppercase_manager_server_messenger.dispose()
 
 		self.assertEqual("TEST MESSAGE", formatted_message)
-
-		if found_exception is not None:
-			raise found_exception
 
 	def test_reverse(self):
 
@@ -796,40 +790,25 @@ class StructureBindClientMessengerTest(unittest.TestCase):
 
 		# send message
 
-		message_manager_client_messenger = get_default_message_manager_client_messenger_factory().get_client_messenger()
+		message_manager_client_structure = get_default_message_manager_client_structure_factory().get_structure()
 
-		formatted_message = None  # type: str
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal formatted_message
-			if isinstance(client_server_message, FormatMessageResponseMessageManagerClientServerMessage):
-				formatted_message = client_server_message.get_message()
-			else:
-				raise Exception(f"Unexpected message: {client_server_message}")
-
-		found_exception = None  # type: Exception
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			if found_exception is not None:
-				found_exception = exception
-
-		message_manager_client_messenger.connect_to_server()
-		message_manager_client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
-		)
-
-		message_manager_client_messenger.send_to_server(
-			client_server_message=FormatMessageRequestMessageManagerClientServerMessage(
+		for index in range(3):
+			start_datetime = datetime.utcnow()
+			formatted_message = message_manager_client_structure.format_message(
 				message="test message",
 				format_types=[
-					FormatTypeEnum.Reverse.value
+					FormatTypeEnum.Reverse
 				]
 			)
-		)
+			end_datetime = datetime.utcnow()
+
+			print(f"{datetime.utcnow()}: test: elapsed time: {(end_datetime - start_datetime).total_seconds()}")
+
+		# waiting for messages
 
 		time.sleep(1.0)
 
-		message_manager_client_messenger.dispose()
+		message_manager_client_structure.dispose()
 
 		message_manager_server_messenger.stop_receiving_from_clients()
 
@@ -844,9 +823,6 @@ class StructureBindClientMessengerTest(unittest.TestCase):
 		uppercase_manager_server_messenger.dispose()
 
 		self.assertEqual("egassem tset", formatted_message)
-
-		if found_exception is not None:
-			raise found_exception
 
 	def test_uppercase_reverse(self):
 
@@ -866,41 +842,19 @@ class StructureBindClientMessengerTest(unittest.TestCase):
 
 		# send message
 
-		message_manager_client_messenger = get_default_message_manager_client_messenger_factory().get_client_messenger()
+		message_manager_client_structure = get_default_message_manager_client_structure_factory().get_structure()
 
-		formatted_message = None  # type: str
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal formatted_message
-			if isinstance(client_server_message, FormatMessageResponseMessageManagerClientServerMessage):
-				formatted_message = client_server_message.get_message()
-			else:
-				raise Exception(f"Unexpected message: {client_server_message}")
-
-		found_exception = None  # type: Exception
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			if found_exception is not None:
-				found_exception = exception
-
-		message_manager_client_messenger.connect_to_server()
-		message_manager_client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
-		)
-
-		message_manager_client_messenger.send_to_server(
-			client_server_message=FormatMessageRequestMessageManagerClientServerMessage(
-				message="test message",
-				format_types=[
-					FormatTypeEnum.Uppercase.value,
-					FormatTypeEnum.Reverse.value
-				]
-			)
+		formatted_message = message_manager_client_structure.format_message(
+			message="test message",
+			format_types=[
+				FormatTypeEnum.Uppercase,
+				FormatTypeEnum.Reverse
+			]
 		)
 
 		time.sleep(1.0)
 
-		message_manager_client_messenger.dispose()
+		message_manager_client_structure.dispose()
 
 		message_manager_server_messenger.stop_receiving_from_clients()
 
@@ -915,9 +869,6 @@ class StructureBindClientMessengerTest(unittest.TestCase):
 		uppercase_manager_server_messenger.dispose()
 
 		self.assertEqual("EGASSEM TSET", formatted_message)
-
-		if found_exception is not None:
-			raise found_exception
 
 	def test_reverse_reverse(self):
 
@@ -937,41 +888,19 @@ class StructureBindClientMessengerTest(unittest.TestCase):
 
 		# send message
 
-		message_manager_client_messenger = get_default_message_manager_client_messenger_factory().get_client_messenger()
+		message_manager_client_structure = get_default_message_manager_client_structure_factory().get_structure()
 
-		formatted_message = None  # type: str
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal formatted_message
-			if isinstance(client_server_message, FormatMessageResponseMessageManagerClientServerMessage):
-				formatted_message = client_server_message.get_message()
-			else:
-				raise Exception(f"Unexpected message: {client_server_message}")
-
-		found_exception = None  # type: Exception
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			if found_exception is not None:
-				found_exception = exception
-
-		message_manager_client_messenger.connect_to_server()
-		message_manager_client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
-		)
-
-		message_manager_client_messenger.send_to_server(
-			client_server_message=FormatMessageRequestMessageManagerClientServerMessage(
-				message="test message",
-				format_types=[
-					FormatTypeEnum.Reverse.value,
-					FormatTypeEnum.Reverse.value
-				]
-			)
+		formatted_message = message_manager_client_structure.format_message(
+			message="test message",
+			format_types=[
+				FormatTypeEnum.Reverse,
+				FormatTypeEnum.Reverse
+			]
 		)
 
 		time.sleep(1.0)
 
-		message_manager_client_messenger.dispose()
+		message_manager_client_structure.dispose()
 
 		message_manager_server_messenger.stop_receiving_from_clients()
 
@@ -986,9 +915,6 @@ class StructureBindClientMessengerTest(unittest.TestCase):
 		uppercase_manager_server_messenger.dispose()
 
 		self.assertEqual("test message", formatted_message)
-
-		if found_exception is not None:
-			raise found_exception
 
 	def test_reverse_reverse_reverse(self):
 
@@ -1008,42 +934,20 @@ class StructureBindClientMessengerTest(unittest.TestCase):
 
 		# send message
 
-		message_manager_client_messenger = get_default_message_manager_client_messenger_factory().get_client_messenger()
+		message_manager_client_structure = get_default_message_manager_client_structure_factory().get_structure()
 
-		formatted_message = None  # type: str
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal formatted_message
-			if isinstance(client_server_message, FormatMessageResponseMessageManagerClientServerMessage):
-				formatted_message = client_server_message.get_message()
-			else:
-				raise Exception(f"Unexpected message: {client_server_message}")
-
-		found_exception = None  # type: Exception
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			if found_exception is not None:
-				found_exception = exception
-
-		message_manager_client_messenger.connect_to_server()
-		message_manager_client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
-		)
-
-		message_manager_client_messenger.send_to_server(
-			client_server_message=FormatMessageRequestMessageManagerClientServerMessage(
-				message="test message",
-				format_types=[
-					FormatTypeEnum.Reverse.value,
-					FormatTypeEnum.Reverse.value,
-					FormatTypeEnum.Reverse.value
-				]
-			)
+		formatted_message = message_manager_client_structure.format_message(
+			message="test message",
+			format_types=[
+				FormatTypeEnum.Reverse,
+				FormatTypeEnum.Reverse,
+				FormatTypeEnum.Reverse
+			]
 		)
 
 		time.sleep(1.0)
 
-		message_manager_client_messenger.dispose()
+		message_manager_client_structure.dispose()
 
 		message_manager_server_messenger.stop_receiving_from_clients()
 
@@ -1059,5 +963,109 @@ class StructureBindClientMessengerTest(unittest.TestCase):
 
 		self.assertEqual("egassem tset", formatted_message)
 
-		if found_exception is not None:
-			raise found_exception
+	def test_reverse_many_times(self):
+
+		uppercase_manager_server_messenger = get_default_uppercase_manager_server_messenger_factory().get_server_messenger()
+
+		uppercase_manager_server_messenger.start_receiving_from_clients()
+
+		reverse_manager_server_messenger = get_default_reverse_manager_server_messenger_factory().get_server_messenger()
+
+		reverse_manager_server_messenger.start_receiving_from_clients()
+
+		message_manager_server_messenger = get_default_message_manager_server_messenger_factory().get_server_messenger()
+
+		message_manager_server_messenger.start_receiving_from_clients()
+
+		time.sleep(0.1)
+
+		# send message
+
+		message_manager_client_structure = get_default_message_manager_client_structure_factory().get_structure()
+
+		for index in range(100):
+			start_datetime = datetime.utcnow()
+			formatted_message = message_manager_client_structure.format_message(
+				message="test message",
+				format_types=[
+					FormatTypeEnum.Reverse
+				]
+			)
+			end_datetime = datetime.utcnow()
+
+			print(f"{datetime.utcnow()}: test: elapsed time: {(end_datetime - start_datetime).total_seconds()}")
+
+		# waiting for messages
+
+		time.sleep(1.0)
+
+		message_manager_client_structure.dispose()
+
+		message_manager_server_messenger.stop_receiving_from_clients()
+
+		message_manager_server_messenger.dispose()
+
+		reverse_manager_server_messenger.stop_receiving_from_clients()
+
+		reverse_manager_server_messenger.dispose()
+
+		uppercase_manager_server_messenger.stop_receiving_from_clients()
+
+		uppercase_manager_server_messenger.dispose()
+
+		self.assertEqual("egassem tset", formatted_message)
+
+	def test_reverse_many_times_recursively(self):
+
+		uppercase_manager_server_messenger = get_default_uppercase_manager_server_messenger_factory().get_server_messenger()
+
+		uppercase_manager_server_messenger.start_receiving_from_clients()
+
+		reverse_manager_server_messenger = get_default_reverse_manager_server_messenger_factory().get_server_messenger()
+
+		reverse_manager_server_messenger.start_receiving_from_clients()
+
+		message_manager_server_messenger = get_default_message_manager_server_messenger_factory().get_server_messenger()
+
+		message_manager_server_messenger.start_receiving_from_clients()
+
+		time.sleep(0.1)
+
+		# send message
+
+		message_manager_client_structure = get_default_message_manager_client_structure_factory().get_structure()
+
+		avg_total = 4
+		for index in range(25):
+			avg_sum = 0
+			for avg_index in range(avg_total):
+				start_datetime = datetime.utcnow()
+				formatted_message = message_manager_client_structure.format_message(
+					message="test message",
+					format_types=[
+						FormatTypeEnum.Reverse
+					]*(index + 1)
+				)
+				end_datetime = datetime.utcnow()
+				avg_sum += (end_datetime - start_datetime).total_seconds()
+			print(f"{datetime.utcnow()}: test: elapsed time: {index}: {avg_sum / avg_total}")
+
+		# waiting for messages
+
+		time.sleep(1.0)
+
+		message_manager_client_structure.dispose()
+
+		message_manager_server_messenger.stop_receiving_from_clients()
+
+		message_manager_server_messenger.dispose()
+
+		reverse_manager_server_messenger.stop_receiving_from_clients()
+
+		reverse_manager_server_messenger.dispose()
+
+		uppercase_manager_server_messenger.stop_receiving_from_clients()
+
+		uppercase_manager_server_messenger.dispose()
+
+		self.assertEqual("egassem tset", formatted_message)

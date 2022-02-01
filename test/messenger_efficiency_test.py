@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime
 import time
 from typing import List, Tuple, Dict, Callable, Type
-from test.messenger_test import get_default_local_host_pointer, get_default_client_messenger, get_default_server_messenger, HelloWorldBaseClientServerMessage, EchoRequestBaseClientServerMessage, EchoResponseBaseClientServerMessage, AnnounceBaseClientServerMessage, HelloWorldBaseClientServerMessage
+from test.messenger_test import get_default_local_host_pointer, get_default_client_messenger_factory, get_default_server_messenger_factory, HelloWorldBaseClientServerMessage, EchoRequestBaseClientServerMessage, EchoResponseBaseClientServerMessage, AnnounceBaseClientServerMessage, HelloWorldBaseClientServerMessage
 from austin_heller_repo.threading import AsyncHandle, start_thread, Semaphore
 from src.austin_heller_repo.socket_queued_message_framework import ClientMessenger, ClientServerMessage
 import matplotlib.pyplot as plt
@@ -74,7 +74,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		clients_total = 10
 		messages_per_client_total = 100
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -107,7 +107,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -129,7 +129,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message = str(global_message_index)
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message,
 						is_ordered=True
 					)
@@ -176,7 +176,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		clients_total = 100
 		messages_per_client_total = 100
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -209,7 +209,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -231,7 +231,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message = str(global_message_index)
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message,
 						is_ordered=True
 					)
@@ -278,7 +278,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		clients_total = 100
 		messages_per_client_total = 100
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -311,7 +311,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -345,7 +345,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message = str(get_global_message_index())
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message,
 						is_ordered=True
 					)
@@ -398,7 +398,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		clients_total = 100
 		messages_per_client_total = 100
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -431,7 +431,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -466,7 +466,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				time.sleep(0.1)
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message,
 						is_ordered=True
 					)
@@ -519,7 +519,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		clients_total = 10
 		messages_per_client_total = 100
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -552,7 +552,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -586,7 +586,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message = str(get_global_message_index())
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message,
 						is_ordered=True
 					)
@@ -641,7 +641,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		clients_total = 10
 		messages_per_client_total = 100
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -674,7 +674,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -708,7 +708,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message = str(get_global_message_index())
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message,
 						is_ordered=True
 					)
@@ -763,7 +763,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		clients_total = 10
 		messages_per_client_total = 100
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -796,7 +796,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -830,7 +830,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message = str(get_global_message_index())
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message,
 						is_ordered=True
 					)
@@ -885,7 +885,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		clients_total = 20
 		messages_per_client_total = 100
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -918,7 +918,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -952,7 +952,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message = str(get_global_message_index())
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message,
 						is_ordered=True
 					)
@@ -1009,7 +1009,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		message_delay_seconds = 0.100
 		client_begin_sending_messages_delay_seconds = 0.1
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1042,7 +1042,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -1077,7 +1077,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message = str(get_global_message_index())
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message,
 						is_ordered=True
 					)
@@ -1136,7 +1136,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		hellos_total = 9
 		echoes_total = 1
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1169,7 +1169,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -1207,7 +1207,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				if hello_index < hellos_total:
 					client_messenger.send_to_server(
-						request_client_server_message=HelloWorldBaseClientServerMessage()
+						client_server_message=HelloWorldBaseClientServerMessage()
 					)
 					hello_index += 1
 					if hello_index == hellos_total and echo_index == echoes_total:
@@ -1215,7 +1215,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 						echo_index = 0
 				elif echo_index < echoes_total:
 					client_messenger.send_to_server(
-						request_client_server_message=EchoRequestBaseClientServerMessage(
+						client_server_message=EchoRequestBaseClientServerMessage(
 							message=message,
 							is_ordered=True
 						)
@@ -1280,7 +1280,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		hellos_total = 49
 		echoes_total = 1
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1313,7 +1313,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -1351,7 +1351,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				if hello_index < hellos_total:
 					client_messenger.send_to_server(
-						request_client_server_message=HelloWorldBaseClientServerMessage()
+						client_server_message=HelloWorldBaseClientServerMessage()
 					)
 					hello_index += 1
 					if hello_index == hellos_total and echo_index == echoes_total:
@@ -1359,7 +1359,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 						echo_index = 0
 				elif echo_index < echoes_total:
 					client_messenger.send_to_server(
-						request_client_server_message=EchoRequestBaseClientServerMessage(
+						client_server_message=EchoRequestBaseClientServerMessage(
 							message=message,
 							is_ordered=True
 						)
@@ -1424,7 +1424,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		hellos_total = 0
 		echoes_total = 1
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1457,7 +1457,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -1495,7 +1495,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				if hello_index < hellos_total:
 					client_messenger.send_to_server(
-						request_client_server_message=HelloWorldBaseClientServerMessage()
+						client_server_message=HelloWorldBaseClientServerMessage()
 					)
 					hello_index += 1
 					if hello_index == hellos_total and echo_index == echoes_total:
@@ -1503,7 +1503,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 						echo_index = 0
 				elif echo_index < echoes_total:
 					client_messenger.send_to_server(
-						request_client_server_message=EchoRequestBaseClientServerMessage(
+						client_server_message=EchoRequestBaseClientServerMessage(
 							message=message,
 							is_ordered=True
 						)
@@ -1568,7 +1568,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		hellos_total = 0
 		echoes_total = 1
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1601,7 +1601,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -1639,7 +1639,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				if hello_index < hellos_total:
 					client_messenger.send_to_server(
-						request_client_server_message=HelloWorldBaseClientServerMessage()
+						client_server_message=HelloWorldBaseClientServerMessage()
 					)
 					hello_index += 1
 					if hello_index == hellos_total and echo_index == echoes_total:
@@ -1647,7 +1647,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 						echo_index = 0
 				elif echo_index < echoes_total:
 					client_messenger.send_to_server(
-						request_client_server_message=EchoRequestBaseClientServerMessage(
+						client_server_message=EchoRequestBaseClientServerMessage(
 							message=message,
 							is_ordered=True
 						)
@@ -1710,7 +1710,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 		message_delay_seconds = 0.050
 		client_begin_sending_messages_delay_seconds = 0
 
-		server_messenger = get_default_server_messenger()
+		server_messenger = get_default_server_messenger_factory().get_server_messenger()
 
 		server_messenger.start_receiving_from_clients()
 
@@ -1743,7 +1743,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 
 		client_messengers = []
 		for index in range(clients_total):
-			client_messenger = get_default_client_messenger()
+			client_messenger = get_default_client_messenger_factory().get_client_messenger()
 			client_messenger.connect_to_server()
 
 			time.sleep(0.1)
@@ -1778,7 +1778,7 @@ class MessengerEfficiencyTest(unittest.TestCase):
 				message = str(get_global_message_index())
 				message_send_start_time_per_message_uuid[message] = datetime.utcnow()
 				client_messenger.send_to_server(
-					request_client_server_message=EchoRequestBaseClientServerMessage(
+					client_server_message=EchoRequestBaseClientServerMessage(
 						message=message,
 						is_ordered=True
 					)

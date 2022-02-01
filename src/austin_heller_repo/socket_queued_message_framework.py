@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from austin_heller_repo.common import StringEnum, HostPointer, static_init
+from austin_heller_repo.common import StringEnum, HostPointer, static_init, ElapsedTime
 from austin_heller_repo.socket import ClientSocketFactory, ClientSocket, ServerSocketFactory, ServerSocket, ReadWriteSocketClosedException
 from austin_heller_repo.threading import AsyncHandle, Semaphore, ReadOnlyAsyncHandle, PreparedSemaphoreRequest, SemaphoreRequestQueue, SemaphoreRequest, start_thread, ThreadCycle, ThreadCycleCache, CyclingUnitOfWork, SequentialQueue, SequentialQueueReader, SequentialQueueWriter, SequentialQueueFactory, ConstantAsyncHandle
 from typing import List, Tuple, Dict, Type, Callable
@@ -19,8 +19,9 @@ class ClientServerMessage(ABC):
 
 	__client_server_message_class_per_client_server_message_type_per_parent_class = {}  # type: Dict[Type[ClientServerMessage], Dict[ClientServerMessageTypeEnum, Type[ClientServerMessage]]]
 
-	def __init__(self):
-		pass
+	def __init__(self, *, destination_uuid: str):
+
+		self.__destination_uuid = destination_uuid
 
 	@classmethod
 	def __map_client_server_message_class_to_client_server_message_type(cls):
@@ -76,20 +77,12 @@ class ClientServerMessage(ABC):
 	@abstractmethod
 	def to_json(self) -> Dict:
 		return {
-			"__type": self.__class__.get_client_server_message_type().value
+			"__type": self.__class__.get_client_server_message_type().value,
+			"destination_uuid": self.__destination_uuid
 		}
 
-	@abstractmethod
-	def is_response(self) -> bool:
-		raise NotImplementedError()
-
-	@abstractmethod
 	def get_destination_uuid(self) -> str:
-		raise NotImplementedError()
-
-	@abstractmethod
-	def is_structural_influence(self) -> bool:
-		raise NotImplementedError()
+		return self.__destination_uuid
 
 	@abstractmethod
 	def is_ordered(self) -> bool:
@@ -441,12 +434,11 @@ class Structure(ABC):
 		self.__registered_child_structures.append(structure)
 		self.__registered_child_structures_semaphore.release()
 
-	def bind_client_messenger(self, *, client_messenger_factory: ClientMessengerFactory, source_type: SourceTypeEnum) -> ClientMessenger:
+	def bind_client_messenger(self, *, client_messenger_factory: ClientMessengerFactory, source_type: SourceTypeEnum) -> str:
 
 		source_uuid = str(uuid.uuid4())
 		def callback(client_server_message: ClientServerMessage):
 			nonlocal source_uuid
-			print(f"{datetime.utcnow()}: Structure: bind_client_messenger: callback: start")
 			structure_influence = StructureInfluence(
 				client_server_message=client_server_message,
 				source_uuid=source_uuid,
@@ -455,10 +447,8 @@ class Structure(ABC):
 			self.update_structure(
 				structure_influence=structure_influence
 			)
-			print(f"{datetime.utcnow()}: Structure: bind_client_messenger: callback: end")
 
 		def on_exception(exception: Exception):
-			print(f"{datetime.utcnow()}: Structure: bind_client_messenger: on_exception: exception: {exception}")
 			if self.__found_exception is None:
 				self.__found_exception = exception
 
@@ -474,7 +464,7 @@ class Structure(ABC):
 			on_exception=on_exception
 		)
 
-		return client_messenger
+		return source_uuid
 
 	def update_structure(self, *, structure_influence: StructureInfluence):
 		self.__update_structure_semaphore.acquire()
@@ -511,8 +501,7 @@ class Structure(ABC):
 		finally:
 			self.__update_structure_semaphore.release()
 
-	def send_response(self, *, client_server_message: ClientServerMessage):
-		print(f"{datetime.utcnow()}: Structure: send_response: client_server_message: {client_server_message}")
+	def send_client_server_message(self, *, client_server_message: ClientServerMessage):
 		bound_client_messenger = self.__bound_client_messenger_per_source_uuid.get(client_server_message.get_destination_uuid(), None)
 		if bound_client_messenger is None:
 			if self.__on_response is None:
@@ -535,9 +524,9 @@ class Structure(ABC):
 			on_transition=on_transition
 		)
 
-	@abstractmethod
 	def dispose(self):
-		raise NotImplementedError()
+		for client_messenger in self.__bound_client_messenger_per_source_uuid.values():
+			client_messenger.dispose()
 
 
 class StructureFactory(ABC):
@@ -680,14 +669,13 @@ class ServerMessenger():
 						source_type=source_type
 					)
 				else:
-					if client_server_message.is_response():
+					if client_server_message.get_destination_uuid() in self.__client_sockets_per_source_uuid:
+						# send message if this isn't meant to be processed on this structure
 						self.__send_client_server_message_to_destination(
 							client_server_message=client_server_message
 						)
-
-					# send message into the structure if it needs to be processed
-
-					if client_server_message.is_structural_influence():
+					else:
+						# send message into the structure if it needs to be processed
 						try:
 							# NOTE tested calling self.__structure.send_response directly here and found no real performance increase
 							self.__structure.update_structure(
