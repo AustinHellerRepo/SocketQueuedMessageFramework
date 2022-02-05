@@ -85,10 +85,6 @@ class ClientServerMessage(ABC):
 		return self.__destination_uuid
 
 	@abstractmethod
-	def is_ordered(self) -> bool:
-		raise NotImplementedError()
-
-	@abstractmethod
 	def get_structural_error_client_server_message_response(self, *, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		raise NotImplementedError()
 
@@ -403,6 +399,7 @@ class Structure(ABC):
 		self.__bound_client_messenger_per_source_uuid = {}  # type: Dict[str, ClientMessenger]
 		self.__bound_client_messenger_per_source_uuid_semaphore = Semaphore()
 		self.__update_structure_semaphore = Semaphore()
+		self.__source_uuid = None  # type: str
 
 		self.__initialize()
 
@@ -425,6 +422,12 @@ class Structure(ABC):
 			)
 		self.__registered_child_structures_semaphore.release()
 
+	def set_source_uuid(self, *, source_uuid: str):
+		self.__source_uuid = source_uuid
+
+	def get_source_uuid(self) -> str:
+		return self.__source_uuid
+
 	def register_child_structure(self, *, structure: Structure):
 		self.__registered_child_structures_semaphore.acquire()
 		if self.__on_response is not None:
@@ -434,11 +437,17 @@ class Structure(ABC):
 		self.__registered_child_structures.append(structure)
 		self.__registered_child_structures_semaphore.release()
 
-	def bind_client_messenger(self, *, client_messenger_factory: ClientMessengerFactory, source_type: SourceTypeEnum) -> str:
+	@abstractmethod
+	def client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum):
+		raise NotImplementedError()
+
+	def connect_to_outbound_messenger(self, *, client_messenger_factory: ClientMessengerFactory, source_type: SourceTypeEnum):
 
 		source_uuid = str(uuid.uuid4())
+
 		def callback(client_server_message: ClientServerMessage):
 			nonlocal source_uuid
+			nonlocal source_type
 			structure_influence = StructureInfluence(
 				client_server_message=client_server_message,
 				source_uuid=source_uuid,
@@ -464,7 +473,10 @@ class Structure(ABC):
 			on_exception=on_exception
 		)
 
-		return source_uuid
+		self.client_connected(
+			source_uuid=source_uuid,
+			source_type=source_type
+		)
 
 	def update_structure(self, *, structure_influence: StructureInfluence):
 		self.__update_structure_semaphore.acquire()
@@ -538,10 +550,9 @@ class StructureFactory(ABC):
 
 class ServerMessenger():
 
-	def __init__(self, *, server_socket_factory_and_local_host_pointer_per_source_type: Dict[SourceTypeEnum, Tuple[ServerSocketFactory, HostPointer]], sequential_queue_factory: SequentialQueueFactory, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], server_messenger_source_type: SourceTypeEnum, structure_factory: StructureFactory, is_debug: bool = False):
+	def __init__(self, *, server_socket_factory_and_local_host_pointer_per_source_type: Dict[SourceTypeEnum, Tuple[ServerSocketFactory, HostPointer]], client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], server_messenger_source_type: SourceTypeEnum, structure_factory: StructureFactory, is_debug: bool = False):
 
 		self.__server_socket_factory_and_local_host_pointer_per_source_type = server_socket_factory_and_local_host_pointer_per_source_type
-		self.__sequential_queue_factory = sequential_queue_factory
 		self.__client_server_message_class = client_server_message_class
 		self.__source_type_enum_class = source_type_enum_class
 		self.__server_messenger_source_type = server_messenger_source_type
@@ -550,14 +561,10 @@ class ServerMessenger():
 
 		self.__server_messenger_uuid = str(uuid.uuid4())
 		self.__server_sockets = []  # type: List[ServerSocket]
-		self.__sequential_queue = None  # type: SequentialQueue
-		self.__sequential_queue_writer = None  # type: SequentialQueueWriter
-		self.__sequential_queue_reader = None  # type: SequentialQueueReader
 		self.__is_receiving_from_clients = False
 		self.__client_sockets_per_source_uuid = {}  # type: Dict[str, ClientSocket]
 		self.__client_sockets_per_source_uuid_semaphore = Semaphore()
 		self.__structure = self.__structure_factory.get_structure()
-		self.__queue_reader_async_handle = None  # type: AsyncHandle
 		self.__on_accepted_client_method_exception = None  # type: Exception
 		self.__on_accepted_client_method_exception_semaphore = Semaphore()
 		self.__process_read_async_handle_per_source_uuid = {}  # type: Dict[str, AsyncHandle]
@@ -571,9 +578,6 @@ class ServerMessenger():
 		self.__on_response_from_structure_async_handle = ConstantAsyncHandle(
 			result=None
 		)
-		self.__sequential_queue = self.__sequential_queue_factory.get_sequential_queue()
-		self.__sequential_queue_writer = self.__sequential_queue.get_writer().get_result()
-		self.__sequential_queue_reader = self.__sequential_queue.get_reader().get_result()
 		self.__structure.set_on_response(
 			on_response=self.__on_response_from_structure
 		)
@@ -618,156 +622,60 @@ class ServerMessenger():
 		finally:
 			pass
 
-	def __write_client_server_message_to_queue(self, read_only_async_handle: ReadOnlyAsyncHandle, client_server_message: ClientServerMessage, source_uuid: str, source_type: SourceTypeEnum):
-
-		if not read_only_async_handle.is_cancelled():
-
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: __write_client_server_message_to_queue: writing message to sequential queue")
-
-			socket_queue_message = SocketQueuedMessage(
-				source_uuid=source_uuid,
-				source_type=source_type,
-				client_server_message=client_server_message,
-				create_datetime=datetime.utcnow(),
-				message_uuid=str(uuid.uuid4())
-			)
-
-			write_bytes_async_handle = self.__sequential_queue_writer.write_bytes(
-				message_bytes=json.dumps(socket_queue_message.to_json()).encode()
-			)
-			write_bytes_async_handle.add_parent(
-				async_handle=read_only_async_handle
-			)
-			write_bytes_async_handle.get_result()
-		else:
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: __write_client_server_message_to_queue: cancelled, so not writing message to sequential queue")
-
 	def __on_response_from_structure(self, client_server_message: ClientServerMessage):
 
 		self.__process_client_server_message(
 			read_only_async_handle=self.__on_response_from_structure_async_handle,
 			client_server_message=client_server_message,
-			is_from_queue=False,
 			source_uuid=self.__server_messenger_uuid,
 			source_type=self.__server_messenger_source_type
 		)
 
-	def __process_client_server_message(self, read_only_async_handle: ReadOnlyAsyncHandle, client_server_message: ClientServerMessage, is_from_queue: bool, source_uuid: str, source_type: SourceTypeEnum):
+	def __process_client_server_message(self, read_only_async_handle: ReadOnlyAsyncHandle, client_server_message: ClientServerMessage, source_uuid: str, source_type: SourceTypeEnum):
 
 		if self.__is_debug:
 			print(f"{datetime.utcnow()}: ServerMessenger: __process_client_server_message: start")
 
 		try:
 			if not read_only_async_handle.is_cancelled():
-				if client_server_message.is_ordered() and not is_from_queue:
-					self.__write_client_server_message_to_queue(
-						read_only_async_handle=read_only_async_handle,
-						client_server_message=client_server_message,
-						source_uuid=source_uuid,
-						source_type=source_type
+				if client_server_message.get_destination_uuid() in self.__client_sockets_per_source_uuid:
+					# send message if this isn't meant to be processed on this structure
+					self.__send_client_server_message_to_destination(
+						client_server_message=client_server_message
 					)
 				else:
-					if client_server_message.get_destination_uuid() in self.__client_sockets_per_source_uuid:
-						# send message if this isn't meant to be processed on this structure
-						self.__send_client_server_message_to_destination(
-							client_server_message=client_server_message
+					# send message into the structure if it needs to be processed
+					try:
+						# NOTE tested calling self.__structure.send_response directly here and found no real performance increase
+						self.__structure.update_structure(
+							structure_influence=StructureInfluence(
+								client_server_message=client_server_message,
+								source_uuid=source_uuid,
+								source_type=source_type
+							)
 						)
-					else:
-						# send message into the structure if it needs to be processed
-						try:
-							# NOTE tested calling self.__structure.send_response directly here and found no real performance increase
-							self.__structure.update_structure(
-								structure_influence=StructureInfluence(
-									client_server_message=client_server_message,
-									source_uuid=source_uuid,
-									source_type=source_type
-								)
-							)
-						except StructureTransitionException as ex:
+					except StructureTransitionException as ex:
+						if self.__is_debug:
+							print(f"{datetime.utcnow()}: ServerMessenger: __process_client_server_message: structure: ex: {ex}")
+						response_client_server_message = client_server_message.get_structural_error_client_server_message_response(
+							structure_transition_exception=ex,
+							destination_uuid=source_uuid
+						)
+						if response_client_server_message is not None:
 							if self.__is_debug:
-								print(f"{datetime.utcnow()}: ServerMessenger: __process_client_server_message: structure: ex: {ex}")
-							response_client_server_message = client_server_message.get_structural_error_client_server_message_response(
-								structure_transition_exception=ex,
-								destination_uuid=source_uuid
+								print(f"{datetime.utcnow()}: ServerMessenger: __process_client_server_message: structure: sending response")
+							self.__process_client_server_message(
+								read_only_async_handle=read_only_async_handle,
+								client_server_message=response_client_server_message,
+								source_uuid=self.__server_messenger_uuid,
+								source_type=self.__server_messenger_source_type
 							)
-							if response_client_server_message is not None:
-								if self.__is_debug:
-									print(f"{datetime.utcnow()}: ServerMessenger: __process_client_server_message: structure: sending response")
-								self.__process_client_server_message(
-									read_only_async_handle=read_only_async_handle,
-									client_server_message=response_client_server_message,
-									is_from_queue=False,
-									source_uuid=self.__server_messenger_uuid,
-									source_type=self.__server_messenger_source_type
-								)
-							else:
-								if self.__is_debug:
-									print(f"{datetime.utcnow()}: ServerMessenger: __process_client_server_message: structure: not sending response")
+						else:
+							if self.__is_debug:
+								print(f"{datetime.utcnow()}: ServerMessenger: __process_client_server_message: structure: not sending response")
 		finally:
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: __process_client_server_message: end")
-
-	def __queue_reader_thread_method(self, read_only_async_handle: ReadOnlyAsyncHandle):
-
-		try:
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: end")
-
-			while self.__is_receiving_from_clients and not read_only_async_handle.is_cancelled():
-
-				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: reading message")
-
-				read_bytes_async_handle = self.__sequential_queue_reader.read_bytes()
-
-				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: setting parent")
-
-				read_bytes_async_handle.add_parent(
-					async_handle=read_only_async_handle
-				)
-
-				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: getting result")
-
-				message_bytes = read_bytes_async_handle.get_result()  # type: bytes
-
-				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: queue_message: {message_bytes}")
-
-				if self.__is_receiving_from_clients and not read_only_async_handle.is_cancelled():
-					if self.__is_debug:
-						print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: message bytes: {message_bytes}")
-					socket_queued_message = SocketQueuedMessage.parse_from_json(
-						json_object=json.loads(message_bytes.decode()),
-						client_server_message_class=self.__client_server_message_class,
-						source_type_enum_class=self.__source_type_enum_class
-					)
-
-					if self.__is_debug:
-						print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: socket_queued_message json: {socket_queued_message.to_json()}")
-
-					self.__process_client_server_message(
-						read_only_async_handle=read_only_async_handle,
-						client_server_message=socket_queued_message.get_client_server_message(),
-						is_from_queue=True,
-						source_uuid=socket_queued_message.get_source_uuid(),
-						source_type=socket_queued_message.get_source_type()
-					)
-
-				else:
-					if self.__is_debug:
-						print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: cancelled")
-
-		except Exception as ex:
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: ex: {ex}")
-			raise ex
-		finally:
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: __queue_reader_thread_method: end")
 
 	def __process_read_message_from_client_socket(self, read_only_async_handle: ReadOnlyAsyncHandle, source_uuid: str, message: str, source_type: SourceTypeEnum):
 
@@ -792,7 +700,6 @@ class ServerMessenger():
 				self.__process_client_server_message(
 					read_only_async_handle=read_only_async_handle,
 					client_server_message=client_server_message,
-					is_from_queue=False,
 					source_uuid=source_uuid,
 					source_type=source_type
 				)
@@ -817,6 +724,11 @@ class ServerMessenger():
 		self.__client_sockets_per_source_uuid_semaphore.release()
 
 		try:
+			self.__structure.client_connected(
+				source_uuid=source_uuid,
+				source_type=source_type
+			)
+
 			while self.__is_receiving_from_clients:
 
 				if self.__is_debug:
@@ -897,13 +809,6 @@ class ServerMessenger():
 		else:
 			self.__is_receiving_from_clients = True
 
-			self.__queue_reader_async_handle = AsyncHandle(
-				get_result_method=self.__queue_reader_thread_method
-			)
-			self.__queue_reader_async_handle.try_wait(
-				timeout_seconds=0
-			)
-
 			def get_on_accept_client_method(*, source_type: SourceTypeEnum):
 				def on_accept_client_method(client_socket: ClientSocket):
 					self.__on_accepted_client_method(client_socket, source_type)
@@ -941,23 +846,8 @@ class ServerMessenger():
 				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__is_receiving_from_clients = False")
 			self.__is_receiving_from_clients = False
 			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__sequential_queue.dispose()")
-			self.__sequential_queue.dispose()
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__sequential_queue_writer.dispose()")
-			self.__sequential_queue_writer.dispose()
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__sequential_queue_reader.dispose()")
-			self.__sequential_queue_reader.dispose()
-			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__on_response_from_structure_async_handle.cancel()")
 			self.__on_response_from_structure_async_handle.cancel()
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__queue_reader_async_handle.cancel()")
-			self.__queue_reader_async_handle.cancel()
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__queue_reader_async_handle.get_result()")
-			self.__queue_reader_async_handle.get_result()
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__client_sockets_per_source_uuid_semaphore.acquire()")
 			self.__process_read_async_handle_per_source_uuid_semaphore.acquire()
@@ -996,10 +886,9 @@ class ServerMessenger():
 
 class ServerMessengerFactory():
 
-	def __init__(self, *, server_socket_factory_and_local_host_pointer_per_source_type: Dict[SourceTypeEnum, Tuple[ServerSocketFactory, HostPointer]], sequential_queue_factory: SequentialQueueFactory, client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], server_messenger_source_type: SourceTypeEnum, structure_factory: StructureFactory, is_debug: bool = False):
+	def __init__(self, *, server_socket_factory_and_local_host_pointer_per_source_type: Dict[SourceTypeEnum, Tuple[ServerSocketFactory, HostPointer]], client_server_message_class: Type[ClientServerMessage], source_type_enum_class: Type[SourceTypeEnum], server_messenger_source_type: SourceTypeEnum, structure_factory: StructureFactory, is_debug: bool = False):
 
 		self.__server_socket_factory_and_local_host_pointer_per_source_type = server_socket_factory_and_local_host_pointer_per_source_type
-		self.__sequential_queue_factory = sequential_queue_factory
 		self.__client_server_message_class = client_server_message_class
 		self.__source_type_enum_class = source_type_enum_class
 		self.__server_messenger_source_type = server_messenger_source_type
@@ -1009,7 +898,6 @@ class ServerMessengerFactory():
 	def get_server_messenger(self) -> ServerMessenger:
 		return ServerMessenger(
 			server_socket_factory_and_local_host_pointer_per_source_type=self.__server_socket_factory_and_local_host_pointer_per_source_type,
-			sequential_queue_factory=self.__sequential_queue_factory,
 			client_server_message_class=self.__client_server_message_class,
 			source_type_enum_class=self.__source_type_enum_class,
 			server_messenger_source_type=self.__server_messenger_source_type,

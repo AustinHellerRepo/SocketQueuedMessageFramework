@@ -94,7 +94,6 @@ def get_default_server_messenger_factory() -> ServerMessengerFactory:
 				get_default_local_host_pointer()
 			)
 		},
-		sequential_queue_factory=sequential_queue_factory,
 		client_server_message_class=BaseClientServerMessage,
 		source_type_enum_class=BaseSourceTypeEnum,
 		server_messenger_source_type=BaseSourceTypeEnum.ServerMessenger,
@@ -155,15 +154,6 @@ class HelloWorldBaseClientServerMessage(BaseClientServerMessage):
 		del json_object["destination_uuid"]
 		return json_object
 
-	def is_response(self) -> bool:
-		return False
-
-	def is_structural_influence(self) -> bool:
-		return False
-
-	def is_ordered(self) -> bool:
-		return True
-
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
@@ -190,15 +180,6 @@ class AnnounceBaseClientServerMessage(BaseClientServerMessage):
 		json_object["name"] = self.__name
 		return json_object
 
-	def is_response(self) -> bool:
-		return False
-
-	def is_structural_influence(self) -> bool:
-		return True
-
-	def is_ordered(self) -> bool:
-		return True
-
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		print(f"{datetime.utcnow()}: AnnounceBaseClientServerMessage: get_structural_error_client_server_message_response: structure state: {structure_transition_exception.get_structure_state()}")
 		return AnnounceFailedBaseClientServerMessage(
@@ -220,15 +201,6 @@ class AnnounceFailedBaseClientServerMessage(BaseClientServerMessage):
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		return json_object
-
-	def is_response(self) -> bool:
-		return True
-
-	def is_structural_influence(self) -> bool:
-		return False
-
-	def is_ordered(self) -> bool:
-		return True
 
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
@@ -252,15 +224,6 @@ class PressButtonBaseClientServerMessage(BaseClientServerMessage):
 		del json_object["destination_uuid"]
 		return json_object
 
-	def is_response(self) -> bool:
-		return False
-
-	def is_structural_influence(self) -> bool:
-		return True
-
-	def is_ordered(self) -> bool:
-		return True
-
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
@@ -283,15 +246,6 @@ class ResetButtonBaseClientServerMessage(BaseClientServerMessage):
 		del json_object["destination_uuid"]
 		return json_object
 
-	def is_response(self) -> bool:
-		return False
-
-	def is_structural_influence(self) -> bool:
-		return True
-
-	def is_ordered(self) -> bool:
-		return True
-
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
@@ -312,15 +266,6 @@ class ResetTransmissionBaseClientServerMessage(BaseClientServerMessage):
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		return json_object
-
-	def is_response(self) -> bool:
-		return True
-
-	def is_structural_influence(self) -> bool:
-		return False
-
-	def is_ordered(self) -> bool:
-		return True
 
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
@@ -347,15 +292,6 @@ class ThreePressesTransmissionBaseClientServerMessage(BaseClientServerMessage):
 		json_object["power"] = self.__power
 		return json_object
 
-	def is_response(self) -> bool:
-		return True
-
-	def is_structural_influence(self) -> bool:
-		return True
-
-	def is_ordered(self) -> bool:
-		return True
-
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
@@ -375,15 +311,6 @@ class PingRequestBaseClientServerMessage(BaseClientServerMessage):
 		json_object = super().to_json()
 		del json_object["destination_uuid"]
 		return json_object
-
-	def is_response(self) -> bool:
-		return False
-
-	def is_structural_influence(self) -> bool:
-		return True
-
-	def is_ordered(self) -> bool:
-		return True
 
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
@@ -409,15 +336,6 @@ class PingResponseBaseClientServerMessage(BaseClientServerMessage):
 		json_object = super().to_json()
 		json_object["ping_index"] = self.__ping_index
 		return json_object
-
-	def is_response(self) -> bool:
-		return True
-
-	def is_structural_influence(self) -> bool:
-		return False
-
-	def is_ordered(self) -> bool:
-		return True
 
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
@@ -447,15 +365,6 @@ class EchoRequestBaseClientServerMessage(BaseClientServerMessage):
 		json_object["is_ordered"] = self.__is_ordered
 		return json_object
 
-	def is_response(self) -> bool:
-		return False
-
-	def is_structural_influence(self) -> bool:
-		return True
-
-	def is_ordered(self) -> bool:
-		return self.__is_ordered
-
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
@@ -481,22 +390,13 @@ class EchoResponseBaseClientServerMessage(BaseClientServerMessage):
 		json_object["message"] = self.__message
 		return json_object
 
-	def is_response(self) -> bool:
-		return True
-
-	def is_structural_influence(self) -> bool:
-		return False
-
-	def is_ordered(self) -> bool:
-		return True
-
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
 
 class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, is_constructor_exception_to_set: str = None, constructor_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None, response_constructor_arguments: Dict = None):
+	def __init__(self, *, is_constructor_exception_to_set: str = None, constructor_exception: str = None, to_json_exception: str = None, get_structural_error_client_server_message_response_exception: str = None, response_constructor_arguments: Dict = None):
 		super().__init__(
 			destination_uuid=None
 		)
@@ -504,9 +404,6 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 		self.__is_constructor_exception_to_set = is_constructor_exception_to_set
 		self.__constructor_exception = constructor_exception
 		self.__to_json_exception = to_json_exception
-		self.__is_response_exception = is_response_exception
-		self.__is_structural_influence_exception = is_structural_influence_exception
-		self.__is_ordered_exception = is_ordered_exception
 		self.__get_structural_error_client_server_message_response_exception = get_structural_error_client_server_message_response_exception
 		self.__response_constructor_arguments = response_constructor_arguments
 
@@ -534,33 +431,9 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 		json_object["is_constructor_exception_to_set"] = self.__is_constructor_exception_to_set
 		json_object["constructor_exception"] = self.__constructor_exception
 		json_object["to_json_exception"] = self.__to_json_exception
-		json_object["is_response_exception"] = self.__is_response_exception
-		json_object["is_structural_influence_exception"] = self.__is_structural_influence_exception
-		json_object["is_ordered_exception"] = self.__is_ordered_exception
 		json_object["get_structural_error_client_server_message_response_exception"] = self.__get_structural_error_client_server_message_response_exception
 		json_object["response_constructor_arguments"] = self.__response_constructor_arguments
 		return json_object
-
-	def is_response(self) -> bool:
-
-		if self.__is_response_exception is not None:
-			raise Exception(self.__is_response_exception)
-
-		return False
-
-	def is_structural_influence(self) -> bool:
-
-		if self.__is_structural_influence_exception is not None:
-			raise Exception(self.__is_structural_influence_exception)
-
-		return True
-
-	def is_ordered(self) -> bool:
-
-		if self.__is_ordered_exception is not None:
-			raise Exception(self.__is_ordered_exception)
-
-		return True
 
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 
@@ -572,7 +445,7 @@ class ErrorRequestBaseClientServerMessage(BaseClientServerMessage):
 
 class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 
-	def __init__(self, *, destination_uuid: str, is_constructor_exception_to_set: str = None, constructor_exception: str = None, to_json_exception: str = None, is_response_exception: str = None, is_structural_influence_exception: str = None, is_ordered_exception: str = None, get_structural_error_client_server_message_response_exception: str = None):
+	def __init__(self, *, destination_uuid: str, is_constructor_exception_to_set: str = None, constructor_exception: str = None, to_json_exception: str = None, get_structural_error_client_server_message_response_exception: str = None):
 		super().__init__(
 			destination_uuid=destination_uuid
 		)
@@ -580,9 +453,6 @@ class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 		self.__is_constructor_exception_to_set = is_constructor_exception_to_set
 		self.__constructor_exception = constructor_exception
 		self.__to_json_exception = to_json_exception
-		self.__is_response_exception = is_response_exception
-		self.__is_structural_influence_exception = is_structural_influence_exception
-		self.__is_ordered_exception = is_ordered_exception
 		self.__get_structural_error_client_server_message_response_exception = get_structural_error_client_server_message_response_exception
 
 		if self.__constructor_exception is not None:
@@ -605,32 +475,8 @@ class ErrorResponseBaseClientServerMessage(BaseClientServerMessage):
 		json_object["is_constructor_exception_to_set"] = self.__is_constructor_exception_to_set
 		json_object["constructor_exception"] = self.__constructor_exception
 		json_object["to_json_exception"] = self.__to_json_exception
-		json_object["is_response_exception"] = self.__is_response_exception
-		json_object["is_structural_influence_exception"] = self.__is_structural_influence_exception
-		json_object["is_ordered_exception"] = self.__is_ordered_exception
 		json_object["get_structural_error_client_server_message_response_exception"] = self.__get_structural_error_client_server_message_response_exception
 		return json_object
-
-	def is_response(self) -> bool:
-
-		if self.__is_response_exception is not None:
-			raise Exception(self.__is_response_exception)
-
-		return True
-
-	def is_structural_influence(self) -> bool:
-
-		if self.__is_structural_influence_exception is not None:
-			raise Exception(self.__is_structural_influence_exception)
-
-		return False
-
-	def is_ordered(self) -> bool:
-
-		if self.__is_ordered_exception is not None:
-			raise Exception(self.__is_ordered_exception)
-
-		return True
 
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 
@@ -662,15 +508,6 @@ class PowerButtonBaseClientServerMessage(BaseClientServerMessage):
 		json_object["is_anonymous"] = self.__is_anonymous
 		return json_object
 
-	def is_response(self) -> bool:
-		return False
-
-	def is_structural_influence(self) -> bool:
-		return True
-
-	def is_ordered(self) -> bool:
-		return False
-
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return PowerButtonFailedBaseClientServerMessage(
 			destination_uuid=destination_uuid
@@ -694,15 +531,6 @@ class PowerOverloadTransmissionBaseClientServerMessage(BaseClientServerMessage):
 		json_object = super().to_json()
 		return json_object
 
-	def is_response(self) -> bool:
-		return True
-
-	def is_structural_influence(self) -> bool:
-		return False
-
-	def is_ordered(self) -> bool:
-		return False
-
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
@@ -723,15 +551,6 @@ class PowerButtonFailedBaseClientServerMessage(BaseClientServerMessage):
 	def to_json(self) -> Dict:
 		json_object = super().to_json()
 		return json_object
-
-	def is_response(self) -> bool:
-		return True
-
-	def is_structural_influence(self) -> bool:
-		return False
-
-	def is_ordered(self) -> bool:
-		return False
 
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
@@ -764,15 +583,6 @@ class TimerRequestBaseClientServerMessage(BaseClientServerMessage):
 		json_object["seconds"] = self.__seconds
 		return json_object
 
-	def is_response(self) -> bool:
-		return False
-
-	def is_structural_influence(self) -> bool:
-		return True
-
-	def is_ordered(self) -> bool:
-		return True
-
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
 
@@ -797,15 +607,6 @@ class TimerResponseBaseClientServerMessage(BaseClientServerMessage):
 		json_object = super().to_json()
 		json_object["message"] = self.__message
 		return json_object
-
-	def is_response(self) -> bool:
-		return True
-
-	def is_structural_influence(self) -> bool:
-		return False
-
-	def is_ordered(self) -> bool:
-		return True
 
 	def get_structural_error_client_server_message_response(self, structure_transition_exception: StructureTransitionException, destination_uuid: str) -> ClientServerMessage:
 		return None
@@ -843,6 +644,9 @@ class PowerStructure(Structure):
 			end_structure_state=PowerStructureStateEnum.Powered,
 			on_transition=self.__power_button_pressed
 		)
+
+	def client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum):
+		raise Exception(f"Unexpected client connected: {source_uuid}: {source_type}")
 
 	def add_source_uuid_for_power_overload_transmission(self, *, source_uuid: str):
 		if source_uuid not in self.__source_uuids_to_inform_on_power_overload:
@@ -914,6 +718,7 @@ class ButtonStructure(Structure):
 			initial_state=ButtonStructureStateEnum.ZeroPresses
 		)
 
+		self.__main_source_uuids = []  # type: List[str]
 		self.__pressed_button_source_uuids = []  # type: List[str]
 		self.__name_per_client_uuid = {}  # type: Dict[str, str]
 		self.__presses_total = 0
@@ -1043,6 +848,12 @@ class ButtonStructure(Structure):
 			end_structure_state=ButtonStructureStateEnum.ZeroPresses,
 			on_transition=self.__timer_requested
 		)
+
+	def client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum):
+		if source_type == BaseSourceTypeEnum.Main:
+			self.__main_source_uuids.append(source_uuid)
+		else:
+			raise Exception(f"Unexpected client connected: {source_uuid}: {source_type}")
 
 	def __name_announced(self, structure_influence: StructureInfluence):
 
@@ -3563,260 +3374,6 @@ class MessengerTest(unittest.TestCase):
 		if found_exception is not None:
 			raise found_exception
 
-	def test_check_if_is_response_client_server_message_raises_exception_when_processing_in_server_messenger(self):
-
-		server_messenger = get_default_server_messenger_factory().get_server_messenger()
-
-		server_messenger.start_receiving_from_clients()
-
-		time.sleep(1)
-
-		client_messenger = get_default_client_messenger_factory().get_client_messenger()
-
-		client_messenger.connect_to_server()
-
-		callback_total = 0
-
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal callback_total
-			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
-			callback_total += 1
-			self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
-
-		found_exception = None  # type: Exception
-
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			found_exception = exception
-
-		client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
-		)
-
-		print(f"{datetime.utcnow()}: sending error messages")
-
-		expected_exception = f"test exception: {uuid.uuid4()}"
-
-		client_messenger.send_to_server(
-			client_server_message=ErrorRequestBaseClientServerMessage(
-				is_response_exception=expected_exception
-			)
-		)
-
-		time.sleep(1)
-
-		client_messenger.send_to_server(
-			client_server_message=PingRequestBaseClientServerMessage()
-		)
-
-		print(f"{datetime.utcnow()}: waiting for messages")
-
-		time.sleep(5)
-
-		client_messenger.dispose()
-
-		time.sleep(1)
-
-		with self.assertRaises(Exception) as assertedException:
-			server_messenger.stop_receiving_from_clients()
-
-		self.assertEqual(expected_exception, str(assertedException.exception))
-
-		# the server encountered an exception but did not close the connect due to it and is still receiving requests
-		if found_exception is not None:
-			raise found_exception
-
-	def test_checking_if_is_structural_influence_from_client_server_message_raises_exception_when_processing_in_server_messenger(self):
-
-		server_messenger = get_default_server_messenger_factory().get_server_messenger()
-
-		server_messenger.start_receiving_from_clients()
-
-		time.sleep(1)
-
-		client_messenger = get_default_client_messenger_factory().get_client_messenger()
-
-		client_messenger.connect_to_server()
-
-		callback_total = 0
-
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal callback_total
-			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
-			if callback_total == 0:
-				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
-			else:
-				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
-			callback_total += 1
-
-		found_exception = None  # type: Exception
-
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			found_exception = exception
-
-		client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
-		)
-
-		print(f"{datetime.utcnow()}: sending error messages")
-
-		expected_exception = f"test exception: {uuid.uuid4()}"
-
-		client_messenger.send_to_server(
-			client_server_message=ErrorRequestBaseClientServerMessage(
-				is_structural_influence_exception=expected_exception
-			)
-		)
-
-		time.sleep(1)
-
-		client_messenger.send_to_server(
-			client_server_message=PingRequestBaseClientServerMessage()
-		)
-
-		time.sleep(5)
-
-		client_messenger.dispose()
-
-		time.sleep(1)
-
-		with self.assertRaises(Exception) as assertedException:
-			server_messenger.stop_receiving_from_clients()
-
-		self.assertEqual(expected_exception, str(assertedException.exception))
-
-		# the server encountered an exception but did not close the connect due to it and is still receiving requests
-		if found_exception is not None:
-			raise found_exception
-
-	def test_checking_if_is_ordered_from_client_server_message_raises_exception_when_processing_in_server_messenger_with_ping_exception(self):
-
-		server_messenger = get_default_server_messenger_factory().get_server_messenger()
-
-		server_messenger.start_receiving_from_clients()
-
-		time.sleep(1)
-
-		client_messenger = get_default_client_messenger_factory().get_client_messenger()
-
-		client_messenger.connect_to_server()
-
-		callback_total = 0
-
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal callback_total
-			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
-			if callback_total == 0:
-				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
-			else:
-				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
-			callback_total += 1
-
-		found_exception = None  # type: Exception
-
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			found_exception = exception
-
-		client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
-		)
-
-		print(f"{datetime.utcnow()}: sending error messages")
-
-		expected_exception = f"test exception: {uuid.uuid4()}"
-
-		client_messenger.send_to_server(
-			client_server_message=ErrorRequestBaseClientServerMessage(
-				is_ordered_exception=expected_exception
-			)
-		)
-
-		time.sleep(1)
-
-		with self.assertRaises(ReadWriteSocketClosedException):
-			client_messenger.send_to_server(
-				client_server_message=PingRequestBaseClientServerMessage()
-			)
-
-		time.sleep(5)
-
-		client_messenger.dispose()
-
-		time.sleep(1)
-
-		with self.assertRaises(Exception) as assertedException:
-			server_messenger.stop_receiving_from_clients()
-
-		self.assertEqual(expected_exception, str(assertedException.exception))
-
-		# the client messenger encountered an exception within the read loop after the server messenger encountered an exception and closed the connection
-		self.assertIsInstance(found_exception, ReadWriteSocketClosedException)
-
-	def test_checking_if_is_ordered_from_client_server_message_raises_exception_when_processing_in_server_messenger(self):
-
-		server_messenger = get_default_server_messenger_factory().get_server_messenger()
-
-		server_messenger.start_receiving_from_clients()
-
-		time.sleep(1)
-
-		client_messenger = get_default_client_messenger_factory().get_client_messenger()
-
-		client_messenger.connect_to_server()
-
-		callback_total = 0
-
-		def callback(client_server_message: ClientServerMessage):
-			nonlocal callback_total
-			print(f"{datetime.utcnow()}: callback: client_server_message: {client_server_message.to_json()}")
-			if callback_total == 0:
-				self.assertIsInstance(client_server_message, ErrorResponseBaseClientServerMessage)
-			else:
-				self.assertIsInstance(client_server_message, PingResponseBaseClientServerMessage)
-			callback_total += 1
-
-		found_exception = None  # type: Exception
-
-		def on_exception(exception: Exception):
-			nonlocal found_exception
-			found_exception = exception
-
-		client_messenger.receive_from_server(
-			callback=callback,
-			on_exception=on_exception
-		)
-
-		print(f"{datetime.utcnow()}: sending error messages")
-
-		expected_exception = f"test exception: {uuid.uuid4()}"
-
-		client_messenger.send_to_server(
-			client_server_message=ErrorRequestBaseClientServerMessage(
-				is_ordered_exception=expected_exception
-			)
-		)
-
-		print(f"{datetime.utcnow()}: waiting for messages")
-
-		time.sleep(5)
-
-		client_messenger.dispose()
-
-		time.sleep(1)
-
-		with self.assertRaises(Exception) as assertedException:
-			server_messenger.stop_receiving_from_clients()
-
-		self.assertEqual(expected_exception, str(assertedException.exception))
-
-		# the client messenger encountered an exception within the read loop after the server messenger encountered an exception and closed the connection
-		self.assertIsInstance(found_exception, ReadWriteSocketClosedException)
-
 	def test_getting_structural_error_client_server_message_response_from_client_server_message_raises_exception_when_processing_in_server_messenger_but_succeeds(self):
 
 		server_messenger = get_default_server_messenger_factory().get_server_messenger()
@@ -3923,6 +3480,8 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(1)
 
+		print(f"{datetime.utcnow()}: sending ErrorRequestBaseClientServerMessage")
+
 		client_messenger.send_to_server(
 			client_server_message=ErrorRequestBaseClientServerMessage(
 				get_structural_error_client_server_message_response_exception=expected_exception
@@ -3931,24 +3490,31 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(1)
 
-		client_messenger.send_to_server(
-			client_server_message=PingRequestBaseClientServerMessage()
-		)
+		print(f"{datetime.utcnow()}: sending PingRequestBaseClientServerMessage")
+
+		with self.assertRaises(ReadWriteSocketClosedException):
+			client_messenger.send_to_server(
+				client_server_message=PingRequestBaseClientServerMessage()
+			)
+
+		print(f"{datetime.utcnow()}: waiting")
 
 		time.sleep(5)
+
+		print(f"{datetime.utcnow()}: disposing client_messenger")
 
 		client_messenger.dispose()
 
 		time.sleep(1)
+
+		print(f"{datetime.utcnow()}: server_messenger.stop_receiving_from_clients()")
 
 		with self.assertRaises(Exception) as assertedException:
 			server_messenger.stop_receiving_from_clients()
 
 		self.assertEqual(expected_exception, str(assertedException.exception))
 
-		# the server encountered an exception but did not close the connect due to it and is still receiving requests
-		if found_exception is not None:
-			raise found_exception
+		self.assertIsInstance(found_exception, ReadWriteSocketClosedException)
 
 	def test_parse_client_server_message_in_response_raises_exception_when_parsing_in_server_messenger(self):
 
@@ -4002,20 +3568,17 @@ class MessengerTest(unittest.TestCase):
 			client_server_message=PingRequestBaseClientServerMessage()
 		)
 
+		print(f"{datetime.utcnow()}: waiting")
+
 		time.sleep(5)
 
 		client_messenger.dispose()
 
 		time.sleep(1)
 
-		with self.assertRaises(Exception) as assertedException:
-			server_messenger.stop_receiving_from_clients()
+		server_messenger.stop_receiving_from_clients()
 
-		self.assertEqual(expected_exception, str(assertedException.exception))
-
-		# the server encountered an exception but did not close the connect due to it and is still receiving requests
-		if found_exception is not None:
-			raise found_exception
+		self.assertEqual(expected_exception, str(found_exception))
 
 # TODO create more server-side ErrorResponse tests
 
@@ -4513,7 +4076,7 @@ class MessengerTest(unittest.TestCase):
 		self.assertEqual(1, callback_total)
 		self.assertIsNone(found_exception)
 
-	def test_child_structure_power_three_times_anonymous_underpowered(self):
+	def test_child_structure_power_two_times_anonymous_underpowered_and_power_attempt_with_failure(self):
 
 		client_messenger = get_default_client_messenger_factory().get_client_messenger()
 
@@ -4530,8 +4093,7 @@ class MessengerTest(unittest.TestCase):
 		def callback(client_server_message: ClientServerMessage):
 			nonlocal callback_total
 			callback_total += 1
-			print(f"Unexpected message: {client_server_message}")
-			raise Exception("This client should not be receiving messages.")
+			self.assertIsInstance(client_server_message, PowerButtonFailedBaseClientServerMessage)
 
 		found_exception = None  # type: Exception
 
@@ -4661,7 +4223,7 @@ class MessengerTest(unittest.TestCase):
 
 		time.sleep(5)
 
-		self.assertEqual(1, callback_total)
+		self.assertEqual(2, callback_total)
 
 		if found_exception is not None:
 			raise found_exception
@@ -5012,93 +4574,97 @@ class MessengerTest(unittest.TestCase):
 			on_exception=on_exception
 		)
 
-		print(f"{datetime.utcnow()}: sending first announcement")
+		try:
 
-		client_messenger.send_to_server(
-			client_server_message=AnnounceBaseClientServerMessage(
-				name="First"
+			print(f"{datetime.utcnow()}: sending first announcement")
+
+			client_messenger.send_to_server(
+				client_server_message=AnnounceBaseClientServerMessage(
+					name="First"
+				)
 			)
-		)
 
-		time.sleep(0.1)
+			time.sleep(0.1)
 
-		print(f"{datetime.utcnow()}: first power: start")
+			print(f"{datetime.utcnow()}: first power: start")
 
-		client_messenger.send_to_server(
-			client_server_message=PowerButtonBaseClientServerMessage(
-				is_anonymous=True
+			client_messenger.send_to_server(
+				client_server_message=PowerButtonBaseClientServerMessage(
+					is_anonymous=True
+				)
 			)
-		)
 
-		print(f"{datetime.utcnow()}: first power: end")
+			print(f"{datetime.utcnow()}: first power: end")
 
-		time.sleep(0.1)
+			time.sleep(0.1)
 
-		print(f"{datetime.utcnow()}: second power: start")
+			print(f"{datetime.utcnow()}: second power: start")
 
-		client_messenger.send_to_server(
-			client_server_message=PowerButtonBaseClientServerMessage(
-				is_anonymous=True
+			client_messenger.send_to_server(
+				client_server_message=PowerButtonBaseClientServerMessage(
+					is_anonymous=True
+				)
 			)
-		)
 
-		print(f"{datetime.utcnow()}: second power: end")
+			print(f"{datetime.utcnow()}: second power: end")
 
-		time.sleep(0.1)
+			time.sleep(0.1)
 
-		print(f"{datetime.utcnow()}: third power: start")
+			print(f"{datetime.utcnow()}: third power: start")
 
-		client_messenger.send_to_server(
-			client_server_message=PowerButtonBaseClientServerMessage(
-				is_anonymous=True
+			client_messenger.send_to_server(
+				client_server_message=PowerButtonBaseClientServerMessage(
+					is_anonymous=True
+				)
 			)
-		)
 
-		print(f"{datetime.utcnow()}: third power: end")
+			print(f"{datetime.utcnow()}: third power: end")
 
-		time.sleep(0.1)
+			time.sleep(0.1)
 
-		print(f"{datetime.utcnow()}: fourth power: start")
+			print(f"{datetime.utcnow()}: fourth power: start")
 
-		client_messenger.send_to_server(
-			client_server_message=PowerButtonBaseClientServerMessage(
-				is_anonymous=True
+			client_messenger.send_to_server(
+				client_server_message=PowerButtonBaseClientServerMessage(
+					is_anonymous=True
+				)
 			)
-		)
 
-		print(f"{datetime.utcnow()}: fourth power: end")
+			print(f"{datetime.utcnow()}: fourth power: end")
 
-		time.sleep(0.1)
+			time.sleep(0.1)
 
-		print(f"{datetime.utcnow()}: fifth power: start")
+			print(f"{datetime.utcnow()}: fifth power: start")
 
-		client_messenger.send_to_server(
-			client_server_message=PowerButtonBaseClientServerMessage(
-				is_anonymous=True
+			client_messenger.send_to_server(
+				client_server_message=PowerButtonBaseClientServerMessage(
+					is_anonymous=True
+				)
 			)
-		)
 
-		print(f"{datetime.utcnow()}: fifth power: end")
+			print(f"{datetime.utcnow()}: fifth power: end")
 
-		time.sleep(0.1)
+			time.sleep(0.1)
 
-		print(f"{datetime.utcnow()}: waiting for messages")
+			print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+			time.sleep(5)
 
-		print(f"{datetime.utcnow()}: dispose client_messenger: start")
+		finally:
 
-		client_messenger.dispose()
+			print(f"{datetime.utcnow()}: dispose client_messenger: start")
 
-		print(f"{datetime.utcnow()}: dispose client_messenger: end")
+			client_messenger.dispose()
 
-		print(f"{datetime.utcnow()}: stopping")
+			print(f"{datetime.utcnow()}: dispose client_messenger: end")
 
-		server_messenger.stop_receiving_from_clients()
+			print(f"{datetime.utcnow()}: stopping")
 
-		print(f"{datetime.utcnow()}: stopped")
+			server_messenger.stop_receiving_from_clients()
 
-		time.sleep(5)
+			print(f"{datetime.utcnow()}: stopped")
+
+			time.sleep(5)
 
 		self.assertEqual(1, callback_total)
 
