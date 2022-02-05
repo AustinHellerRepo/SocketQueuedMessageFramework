@@ -431,7 +431,7 @@ class Structure(ABC):
 		self.__registered_child_structures_semaphore.release()
 
 	@abstractmethod
-	def client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum):
+	def on_client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum):
 		raise NotImplementedError()
 
 	def connect_to_outbound_messenger(self, *, client_messenger_factory: ClientMessengerFactory, source_type: SourceTypeEnum):
