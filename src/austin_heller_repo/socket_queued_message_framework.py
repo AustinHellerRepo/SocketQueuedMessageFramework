@@ -399,7 +399,6 @@ class Structure(ABC):
 		self.__bound_client_messenger_per_source_uuid = {}  # type: Dict[str, ClientMessenger]
 		self.__bound_client_messenger_per_source_uuid_semaphore = Semaphore()
 		self.__update_structure_semaphore = Semaphore()
-		self.__source_uuid = None  # type: str
 
 		self.__initialize()
 
@@ -421,12 +420,6 @@ class Structure(ABC):
 				on_response=on_response
 			)
 		self.__registered_child_structures_semaphore.release()
-
-	def set_source_uuid(self, *, source_uuid: str):
-		self.__source_uuid = source_uuid
-
-	def get_source_uuid(self) -> str:
-		return self.__source_uuid
 
 	def register_child_structure(self, *, structure: Structure):
 		self.__registered_child_structures_semaphore.acquire()
