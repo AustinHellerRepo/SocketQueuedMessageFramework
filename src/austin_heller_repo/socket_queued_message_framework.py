@@ -414,21 +414,25 @@ class Structure(ABC):
 
 	def set_on_response(self, *, on_response: Callable[[ClientServerMessage], None]):
 		self.__registered_child_structures_semaphore.acquire()
-		self.__on_response = on_response
-		for child_structure in self.__registered_child_structures:
-			child_structure.set_on_response(
-				on_response=on_response
-			)
-		self.__registered_child_structures_semaphore.release()
+		try:
+			self.__on_response = on_response
+			for child_structure in self.__registered_child_structures:
+				child_structure.set_on_response(
+					on_response=on_response
+				)
+		finally:
+			self.__registered_child_structures_semaphore.release()
 
 	def register_child_structure(self, *, structure: Structure):
 		self.__registered_child_structures_semaphore.acquire()
-		if self.__on_response is not None:
-			structure.set_on_response(
-				on_response=self.__on_response
-			)
-		self.__registered_child_structures.append(structure)
-		self.__registered_child_structures_semaphore.release()
+		try:
+			if self.__on_response is not None:
+				structure.set_on_response(
+					on_response=self.__on_response
+				)
+			self.__registered_child_structures.append(structure)
+		finally:
+			self.__registered_child_structures_semaphore.release()
 
 	@abstractmethod
 	def on_client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum):
