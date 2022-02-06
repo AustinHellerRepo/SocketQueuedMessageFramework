@@ -466,7 +466,7 @@ class Structure(ABC):
 			on_exception=on_exception
 		)
 
-		self.client_connected(
+		self.on_client_connected(
 			source_uuid=source_uuid,
 			source_type=source_type
 		)
@@ -717,7 +717,7 @@ class ServerMessenger():
 		self.__client_sockets_per_source_uuid_semaphore.release()
 
 		try:
-			self.__structure.client_connected(
+			self.__structure.on_client_connected(
 				source_uuid=source_uuid,
 				source_type=source_type
 			)
