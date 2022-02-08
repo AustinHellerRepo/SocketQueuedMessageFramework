@@ -726,13 +726,20 @@ class ServerMessenger():
 
 			while self.__is_receiving_from_clients:
 
-				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: reading from client socket")
-
 				try:
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: reading from client socket: start")
+
 					client_server_message_json_string = client_socket.read()
+
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: reading from client socket: successful: {client_server_message_json_string}")
+
 				except ReadWriteSocketClosedException as ex:
 					break
+				finally:
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: reading from client socket: end")
 
 				if self.__is_debug:
 					print(f"{datetime.utcnow()}: ServerMessenger: __on_accepted_client_method: read from client socket: {client_server_message_json_string}")
