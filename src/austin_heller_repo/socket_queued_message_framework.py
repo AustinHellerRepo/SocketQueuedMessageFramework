@@ -600,8 +600,14 @@ class ServerMessenger():
 						self.__client_sockets_per_source_uuid[destination_uuid].write(json.dumps(client_server_message.to_json()))
 						is_message_sent_to_source = True
 				except ReadWriteSocketClosedException as ex:
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: __send_client_server_message_to_destination: ReadWriteSocketClosedException ex: {ex}")
 					self.__client_sockets_per_source_uuid[destination_uuid].close()
 					del self.__client_sockets_per_source_uuid[destination_uuid]
+				except Exception as ex:
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: __send_client_server_message_to_destination: ex: {ex}")
+					raise
 				finally:
 					self.__client_sockets_per_source_uuid_semaphore.release()
 
@@ -613,7 +619,7 @@ class ServerMessenger():
 		except Exception as ex:
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: ServerMessenger: __send_client_server_message_to_destination: ex: {ex}")
-			raise ex
+			raise
 		finally:
 			pass
 
