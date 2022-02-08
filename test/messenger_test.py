@@ -1291,7 +1291,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
@@ -1305,7 +1305,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(1, callback_total)
 		self.assertIsNone(found_exception)
@@ -1370,7 +1370,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
@@ -1384,7 +1384,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(1, callback_total)
 		self.assertIsNone(found_exception)
@@ -1478,7 +1478,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
@@ -1493,7 +1493,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(2, callback_total)
 		self.assertIsNone(first_found_exception)
@@ -1620,7 +1620,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
@@ -1636,7 +1636,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertIsNone(first_found_exception)
 		self.assertIsNone(second_found_exception)
@@ -1756,7 +1756,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(0, callback_total)
 		self.assertIsNone(first_found_exception)
@@ -1815,7 +1815,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
@@ -1829,7 +1829,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(1, callback_total)
 		self.assertIsNone(found_exception)
@@ -1939,7 +1939,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(expected_pings_total, callback_total)
 
@@ -2074,7 +2074,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertIsNone(found_exception)
 
@@ -2215,7 +2215,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertIsNone(found_exception)
 
@@ -2346,7 +2346,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertIsNone(found_exception)
 
@@ -2477,7 +2477,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertIsNone(found_exception)
 
@@ -2608,7 +2608,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertIsNone(found_exception)
 
@@ -2739,7 +2739,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertIsNone(found_exception)
 
@@ -2796,7 +2796,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
@@ -2810,7 +2810,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(1, callback_total)
 		self.assertIsNotNone(found_exception)
@@ -2866,7 +2866,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
@@ -2880,7 +2880,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(1, callback_total)
 		self.assertIsNone(found_exception)
@@ -2976,7 +2976,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
@@ -2990,7 +2990,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(1, callback_total)
 		self.assertIsNone(found_exception)
@@ -3061,7 +3061,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing client messenger: start")
 
@@ -3179,7 +3179,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		if found_exception is not None:
 			raise found_exception
@@ -3305,7 +3305,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: wait for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		client_messenger.dispose()
 
@@ -3363,7 +3363,7 @@ class MessengerTest(unittest.TestCase):
 
 		self.assertEqual(expected_exception, str(assertedException.exception))
 
-		time.sleep(5)
+		time.sleep(1)
 
 		client_messenger.dispose()
 
@@ -3424,7 +3424,7 @@ class MessengerTest(unittest.TestCase):
 			client_server_message=PingRequestBaseClientServerMessage()
 		)
 
-		time.sleep(5)
+		time.sleep(1)
 
 		client_messenger.dispose()
 
@@ -3499,7 +3499,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing client_messenger")
 
@@ -3570,7 +3570,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		client_messenger.dispose()
 
@@ -3948,7 +3948,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
@@ -3962,7 +3962,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(0, callback_total)
 		self.assertIsNone(found_exception)
@@ -4057,7 +4057,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: disposing")
 
@@ -4071,7 +4071,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(1, callback_total)
 		self.assertIsNone(found_exception)
@@ -4201,7 +4201,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: dispose client_messenger: start")
 
@@ -4221,7 +4221,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(2, callback_total)
 
@@ -4353,7 +4353,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: dispose client_messenger: start")
 
@@ -4373,7 +4373,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(1, callback_total)
 
@@ -4517,7 +4517,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: waiting for messages")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		print(f"{datetime.utcnow()}: dispose client_messenger: start")
 
@@ -4537,7 +4537,7 @@ class MessengerTest(unittest.TestCase):
 
 		print(f"{datetime.utcnow()}: stopped")
 
-		time.sleep(5)
+		time.sleep(1)
 
 		self.assertEqual(1, callback_total)
 
@@ -4648,7 +4648,7 @@ class MessengerTest(unittest.TestCase):
 
 			print(f"{datetime.utcnow()}: waiting for messages")
 
-			time.sleep(5)
+			time.sleep(1)
 
 		finally:
 
@@ -4664,7 +4664,7 @@ class MessengerTest(unittest.TestCase):
 
 			print(f"{datetime.utcnow()}: stopped")
 
-			time.sleep(5)
+			time.sleep(1)
 
 		self.assertEqual(1, callback_total)
 

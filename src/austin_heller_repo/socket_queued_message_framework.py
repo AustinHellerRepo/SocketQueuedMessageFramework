@@ -416,20 +416,20 @@ class Structure(ABC):
 		self.__registered_child_structures_semaphore.acquire()
 		try:
 			self.__on_response = on_response
-			for child_structure in self.__registered_child_structures:
-				child_structure.set_on_response(
-					on_response=on_response
-				)
 		finally:
 			self.__registered_child_structures_semaphore.release()
+
+	def __child_structure_on_response(self, client_server_message: ClientServerMessage):
+		self.send_client_server_message(
+			client_server_message=client_server_message
+		)
 
 	def register_child_structure(self, *, structure: Structure):
 		self.__registered_child_structures_semaphore.acquire()
 		try:
-			if self.__on_response is not None:
-				structure.set_on_response(
-					on_response=self.__on_response
-				)
+			structure.set_on_response(
+				on_response=self.__child_structure_on_response
+			)
 			self.__registered_child_structures.append(structure)
 		finally:
 			self.__registered_child_structures_semaphore.release()
