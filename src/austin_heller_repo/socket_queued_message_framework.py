@@ -730,7 +730,7 @@ class ServerMessenger():
 				source_type=source_type
 			)
 
-			while self.__is_receiving_from_clients:
+			while self.__is_receiving_from_clients and source_uuid in self.__client_sockets_per_source_uuid:
 
 				try:
 					if self.__is_debug:
