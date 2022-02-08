@@ -413,11 +413,7 @@ class Structure(ABC):
 		self.__current_state = structure_state
 
 	def set_on_response(self, *, on_response: Callable[[ClientServerMessage], None]):
-		self.__registered_child_structures_semaphore.acquire()
-		try:
-			self.__on_response = on_response
-		finally:
-			self.__registered_child_structures_semaphore.release()
+		self.__on_response = on_response
 
 	def __child_structure_on_response(self, client_server_message: ClientServerMessage):
 		self.send_client_server_message(
@@ -536,6 +532,8 @@ class Structure(ABC):
 	def dispose(self):
 		for client_messenger in self.__bound_client_messenger_per_source_uuid.values():
 			client_messenger.dispose()
+		for structure in self.__registered_child_structures:
+			structure.dispose()
 
 
 class StructureFactory(ABC):
