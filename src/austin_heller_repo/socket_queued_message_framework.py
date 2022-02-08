@@ -835,58 +835,70 @@ class ServerMessenger():
 
 	def stop_receiving_from_clients(self):
 
-		if not self.__server_sockets:
-			raise Exception(f"Must first start receiving from clients before stopping.")
-		else:
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: for server_socket in self.__server_sockets")
-			for server_socket in self.__server_sockets:
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: start")
+		try:
+			if not self.__server_sockets:
+				raise Exception(f"Must first start receiving from clients before stopping.")
+			else:
 				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: server_socket.stop_accepting_clients()")
-				server_socket.stop_accepting_clients()
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: for server_socket in self.__server_sockets")
+				for server_socket in self.__server_sockets:
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: server_socket.stop_accepting_clients()")
+					server_socket.stop_accepting_clients()
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: server_socket.close()")
+					server_socket.close()
 				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: server_socket.close()")
-				server_socket.close()
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__server_sockets.clear()")
-			self.__server_sockets.clear()
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__is_receiving_from_clients = False")
-			self.__is_receiving_from_clients = False
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__on_response_from_structure_async_handle.cancel()")
-			self.__on_response_from_structure_async_handle.cancel()
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__client_sockets_per_source_uuid_semaphore.acquire()")
-			self.__process_read_async_handle_per_source_uuid_semaphore.acquire()
-			for source_uuid in self.__process_read_async_handle_per_source_uuid:
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__server_sockets.clear()")
+				self.__server_sockets.clear()
 				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__process_read_async_handle_per_source_uuid[source_uuid].cancel()")
-				self.__process_read_async_handle_per_source_uuid[source_uuid].cancel()
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__is_receiving_from_clients = False")
+				self.__is_receiving_from_clients = False
 				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__process_read_async_handle_per_source_uuid[source_uuid].get_result()")
-				self.__process_read_async_handle_per_source_uuid[source_uuid].get_result()
-			self.__process_read_async_handle_per_source_uuid_semaphore.release()
-			self.__client_sockets_per_source_uuid_semaphore.acquire()
-			for source_uuid in self.__client_sockets_per_source_uuid:
-				client_socket = self.__client_sockets_per_source_uuid[source_uuid]
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__on_response_from_structure_async_handle.cancel()")
+				self.__on_response_from_structure_async_handle.cancel()
 				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: client_socket.close() start")
-				client_socket.close()
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__process_read_async_handle_per_source_uuid_semaphore.acquire()")
+				self.__process_read_async_handle_per_source_uuid_semaphore.acquire()
+				for source_uuid in self.__process_read_async_handle_per_source_uuid:
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__process_read_async_handle_per_source_uuid[source_uuid].cancel()")
+					self.__process_read_async_handle_per_source_uuid[source_uuid].cancel()
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__process_read_async_handle_per_source_uuid[source_uuid].get_result()")
+					self.__process_read_async_handle_per_source_uuid[source_uuid].get_result()
 				if self.__is_debug:
-					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: client_socket.close() end")
-			if self.__is_debug:
-				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__client_sockets_per_source_uuid.clear()")
-			self.__client_sockets_per_source_uuid.clear()
-			self.__client_sockets_per_source_uuid_semaphore.release()
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__process_read_async_handle_per_source_uuid_semaphore.release()")
+				self.__process_read_async_handle_per_source_uuid_semaphore.release()
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__client_sockets_per_source_uuid_semaphore.acquire()")
+				self.__client_sockets_per_source_uuid_semaphore.acquire()
+				for source_uuid in self.__client_sockets_per_source_uuid:
+					client_socket = self.__client_sockets_per_source_uuid[source_uuid]
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: client_socket.close() start")
+					client_socket.close()
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: client_socket.close() end")
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__client_sockets_per_source_uuid.clear()")
+				self.__client_sockets_per_source_uuid.clear()
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: self.__client_sockets_per_source_uuid_semaphore.release()")
+				self.__client_sockets_per_source_uuid_semaphore.release()
 
-		self.__on_accepted_client_method_exception_semaphore.acquire()
-		exception = self.__on_accepted_client_method_exception
-		self.__on_accepted_client_method_exception = None
-		self.__on_accepted_client_method_exception_semaphore.release()
+			self.__on_accepted_client_method_exception_semaphore.acquire()
+			exception = self.__on_accepted_client_method_exception
+			self.__on_accepted_client_method_exception = None
+			self.__on_accepted_client_method_exception_semaphore.release()
 
-		if exception is not None:
-			raise exception
+			if exception is not None:
+				raise exception
+		finally:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: ServerMessenger: stop_receiving_from_clients: end")
 
 	def dispose(self):
 		self.__structure.dispose()
