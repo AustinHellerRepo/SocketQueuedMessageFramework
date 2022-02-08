@@ -514,7 +514,7 @@ class Structure(ABC):
 		bound_client_messenger = self.__bound_client_messenger_per_source_uuid.get(client_server_message.get_destination_uuid(), None)
 		if bound_client_messenger is None:
 			if self.__on_response is None:
-				raise Exception(f"Must first set on_response before expecting responses to be processed by this structure. Type: {type(self)}.")
+				raise Exception(f"Must first set on_response before expecting responses to be processed by this structure or ensure that the source_uuid is correct for the bound client. Type: {type(self)}. ClientServerMessage: {type(client_server_message)}. destination_uuid: {client_server_message.get_destination_uuid()}.")
 			self.__on_response(client_server_message)
 		else:
 			bound_client_messenger.send_to_server(
