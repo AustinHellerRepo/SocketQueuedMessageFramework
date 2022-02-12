@@ -431,7 +431,7 @@ class Structure(ABC):
 			self.__registered_child_structures_semaphore.release()
 
 	@abstractmethod
-	def on_client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum, tag_json: Dict):
+	def on_client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum, tag_json: Dict or None):
 		raise NotImplementedError()
 
 	def connect_to_outbound_messenger(self, *, client_messenger_factory: ClientMessengerFactory, source_type: SourceTypeEnum, tag_json: Dict):
@@ -495,11 +495,14 @@ class Structure(ABC):
 				)
 			structure_transition = structure_transition_per_start_structure_state[self.__current_state]  # type: StructureTransition
 			self.__current_state = structure_transition.get_destination_structure_state()
-			structure_transition.get_on_transition()(structure_influence)
+			try:
+				structure_transition.get_on_transition()(structure_influence)
+			except Exception as ex:
+				print(f"update_structure: ex: get_on_transition: {ex}")
 		except StructureTransitionException as ex:
-			print(f"update_structure: ex: StructureTransitionException: state: {ex.get_structure_state()}")
-			print(f"update_structure: ex: StructureTransitionException: type: {ex.get_structure_influence().get_client_server_message().__class__.get_client_server_message_type()}")
-			print(f"update_structure: ex: StructureTransitionException: source: {ex.get_structure_influence().get_source_uuid()}")
+			print(f"update_structure: ex: {type(ex)}: state: {ex.get_structure_state()}")
+			print(f"update_structure: ex: {type(ex)}: type: {ex.get_structure_influence().get_client_server_message().__class__.get_client_server_message_type()}")
+			print(f"update_structure: ex: {type(ex)}: source: {ex.get_structure_influence().get_source_uuid()}")
 			raise
 		except Exception as ex:
 			print(f"update_structure: ex: {ex}")
