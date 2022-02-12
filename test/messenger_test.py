@@ -645,8 +645,8 @@ class PowerStructure(Structure):
 			on_transition=self.__power_button_pressed
 		)
 
-	def on_client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum):
-		raise Exception(f"Unexpected client connected: {source_uuid}: {source_type}")
+	def on_client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum, tag_json: Dict):
+		raise Exception(f"Unexpected client connected: {source_uuid}: {source_type}: {tag_json}")
 
 	def add_source_uuid_for_power_overload_transmission(self, *, source_uuid: str):
 		if source_uuid not in self.__source_uuids_to_inform_on_power_overload:
@@ -849,11 +849,11 @@ class ButtonStructure(Structure):
 			on_transition=self.__timer_requested
 		)
 
-	def on_client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum):
+	def on_client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum, tag_json: Dict):
 		if source_type == BaseSourceTypeEnum.Main:
 			self.__main_source_uuids.append(source_uuid)
 		else:
-			raise Exception(f"Unexpected client connected: {source_uuid}: {source_type}")
+			raise Exception(f"Unexpected client connected: {source_uuid}: {source_type}: {tag_json}")
 
 	def __name_announced(self, structure_influence: StructureInfluence):
 

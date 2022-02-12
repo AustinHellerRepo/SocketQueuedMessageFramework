@@ -431,10 +431,10 @@ class Structure(ABC):
 			self.__registered_child_structures_semaphore.release()
 
 	@abstractmethod
-	def on_client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum):
+	def on_client_connected(self, *, source_uuid: str, source_type: SourceTypeEnum, tag_json: Dict):
 		raise NotImplementedError()
 
-	def connect_to_outbound_messenger(self, *, client_messenger_factory: ClientMessengerFactory, source_type: SourceTypeEnum):
+	def connect_to_outbound_messenger(self, *, client_messenger_factory: ClientMessengerFactory, source_type: SourceTypeEnum, tag_json: Dict):
 
 		source_uuid = str(uuid.uuid4())
 
@@ -468,7 +468,8 @@ class Structure(ABC):
 
 		self.on_client_connected(
 			source_uuid=source_uuid,
-			source_type=source_type
+			source_type=source_type,
+			tag_json=tag_json
 		)
 
 	def update_structure(self, *, structure_influence: StructureInfluence):
@@ -727,7 +728,8 @@ class ServerMessenger():
 		try:
 			self.__structure.on_client_connected(
 				source_uuid=source_uuid,
-				source_type=source_type
+				source_type=source_type,
+				tag_json=None
 			)
 
 			while self.__is_receiving_from_clients and source_uuid in self.__client_sockets_per_source_uuid:
