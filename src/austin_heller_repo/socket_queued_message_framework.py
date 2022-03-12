@@ -9,6 +9,7 @@ from datetime import datetime
 import uuid
 import time
 import multiprocessing as mp
+import inspect
 
 
 class ClientServerMessageTypeEnum(StringEnum):
@@ -827,16 +828,29 @@ class ServerMessenger():
 					self.__on_accepted_client_method(client_socket, source_type)
 				return on_accept_client_method
 
-			for source_type, (server_socket_factory, local_host_pointer) in self.__server_socket_factory_and_local_host_pointer_per_source_type.items():
-				server_socket = server_socket_factory.get_server_socket()
-				server_socket.start_accepting_clients(
-					host_ip_address=local_host_pointer.get_host_address(),
-					host_port=local_host_pointer.get_host_port(),
-					on_accepted_client_method=get_on_accept_client_method(
-						source_type=source_type
-					)
-				)
-				self.__server_sockets.append(server_socket)
+			if self.__server_socket_factory_and_local_host_pointer_per_source_type:
+				for source_type, (server_socket_factory, local_host_pointer) in self.__server_socket_factory_and_local_host_pointer_per_source_type.items():
+					if self.__is_debug:
+						print(f"{datetime.utcnow()}: ServerMessenger: start_receiving_from_clients: accepting clients at {local_host_pointer.get_host_address()}:{local_host_pointer.get_host_port()}: start")
+					try:
+						server_socket = server_socket_factory.get_server_socket()
+						server_socket.start_accepting_clients(
+							host_ip_address=local_host_pointer.get_host_address(),
+							host_port=local_host_pointer.get_host_port(),
+							on_accepted_client_method=get_on_accept_client_method(
+								source_type=source_type
+							)
+						)
+						self.__server_sockets.append(server_socket)
+						if self.__is_debug:
+							print(f"{datetime.utcnow()}: ServerMessenger: start_receiving_from_clients: accepting clients at {local_host_pointer.get_host_address()}:{local_host_pointer.get_host_port()}: end")
+					except Exception as ex:
+						if self.__is_debug:
+							print(f"{datetime.utcnow()}: ServerMessenger: start_receiving_from_clients: accepting clients at {local_host_pointer.get_host_address()}:{local_host_pointer.get_host_port()}: ex:")
+						raise
+			else:
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: ServerMessenger: start_receiving_from_clients: no clients to accept")
 
 	def stop_receiving_from_clients(self):
 
