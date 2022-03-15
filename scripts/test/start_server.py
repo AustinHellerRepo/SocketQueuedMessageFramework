@@ -14,31 +14,33 @@ except ImportError:
 	from chatroom import ChatRoomStructureFactory, ChatRoomSourceTypeEnum, ChatRoomClientServerMessage
 
 
-server_messenger = ServerMessenger(
-	server_socket_factory_and_local_host_pointer_per_source_type={
-		ChatRoomSourceTypeEnum.Person: (
-			ServerSocketFactory(),
-			HostPointer(
-				host_address="localhost",
-				host_port=30227
+host_address = input("Host address: ")
+if host_address != "":
+	server_messenger = ServerMessenger(
+		server_socket_factory_and_local_host_pointer_per_source_type={
+			ChatRoomSourceTypeEnum.Person: (
+				ServerSocketFactory(),
+				HostPointer(
+					host_address=host_address,
+					host_port=30227
+				)
 			)
-		)
-	},
-	client_server_message_class=ChatRoomClientServerMessage,
-	source_type_enum_class=ChatRoomSourceTypeEnum,
-	server_messenger_source_type=ChatRoomSourceTypeEnum.ChatRoom,
-	structure_factory=ChatRoomStructureFactory(),
-	is_debug=False
-)
+		},
+		client_server_message_class=ChatRoomClientServerMessage,
+		source_type_enum_class=ChatRoomSourceTypeEnum,
+		server_messenger_source_type=ChatRoomSourceTypeEnum.ChatRoom,
+		structure_factory=ChatRoomStructureFactory(),
+		is_debug=False
+	)
 
-server_messenger.start_receiving_from_clients()
+	server_messenger.start_receiving_from_clients()
 
-try:
-	is_running = True
-	while is_running:
-		time.sleep(10.0)
-finally:
 	try:
-		server_messenger.stop_receiving_from_clients()
+		is_running = True
+		while is_running:
+			time.sleep(10.0)
 	finally:
-		server_messenger.dispose()
+		try:
+			server_messenger.stop_receiving_from_clients()
+		finally:
+			server_messenger.dispose()
